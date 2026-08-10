@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  Auto Widget
 //
-//  Created by Jinyu Zhang on 2026/5/8.
+//  Created by Jinyu Zhang & Zhaomin Wu on 2026/5/8.
 //
 
 import SwiftUI
