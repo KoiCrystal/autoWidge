@@ -13,28 +13,26 @@ struct Provider: AppIntentTimelineProvider {
         let sharedDefaults = UserDefaults(suiteName: "group.autowidget.app2widge")
         return sharedDefaults?.string(forKey: "widgetText") ?? "暂无文本"
     }
-
+    
     func placeholder(in context: Context) -> SimpleEntry {
         SimpleEntry(date: Date(), configuration: ConfigurationAppIntent(), text: fetchText())
     }
-
+    
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SimpleEntry {
         SimpleEntry(date: Date(), configuration: configuration, text: fetchText())
     }
     
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
-        var entries: [SimpleEntry] = []
-
-        let currentDate = Date()
-        let currentText = fetchText()
+        let entry = SimpleEntry(
+            date: Date(),
+            configuration: configuration,
+            text: fetchText()
+        )
         
-        for hourOffset in 0 ..< 5 {
-            let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-            let entry = SimpleEntry(date: entryDate, configuration: configuration, text: currentText)
-            entries.append(entry)
-        }
-
-        return Timeline(entries: entries, policy: .atEnd)
+        return Timeline(
+            entries: [entry],
+            policy: .never
+        )
     }
 }
 
@@ -46,7 +44,7 @@ struct SimpleEntry: TimelineEntry {
 
 struct ShowWidgetEntryView : View {
     var entry: Provider.Entry
-
+    
     var body: some View {
         VStack {
             Text(entry.text)
@@ -58,7 +56,7 @@ struct ShowWidgetEntryView : View {
 
 struct ShowWidget: Widget {
     let kind: String = "ShowWidget"
-
+    
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
             ShowWidgetEntryView(entry: entry)

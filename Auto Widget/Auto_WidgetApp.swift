@@ -11,25 +11,10 @@ import WidgetKit
 @main
 struct Auto_WidgetApp: App {
     
-    init() {
-            let mytext = "I love wzm"
-
-            let sharedDefaults = UserDefaults(
-                suiteName: "group.autowidget.app2widge"
-            )
-
-            sharedDefaults?.set(
-                mytext,
-                forKey: "widgetText"
-            )
-
-            WidgetCenter.shared.reloadAllTimelines()
-        }
-    
     var body: some Scene {
         WindowGroup {
             ContentView()
-
+            
         }
     }
 }
