@@ -45,6 +45,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FD824AA430399611001999EC /* Exceptions for "ShowWidget" folder in "Auto Widget" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AppIntent.swift,
+			);
+			target = FDD968592FADCA0500744915 /* Auto Widget */;
+		};
 		FDD968832FADD93E00744915 /* Exceptions for "ShowWidget" folder in "ShowWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -63,6 +70,7 @@
 		FDD968722FADD93C00744915 /* ShowWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				FD824AA430399611001999EC /* Exceptions for "ShowWidget" folder in "Auto Widget" target */,
 				FDD968832FADD93E00744915 /* Exceptions for "ShowWidget" folder in "ShowWidgetExtension" target */,
 			);
 			path = ShowWidget;

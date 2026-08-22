@@ -9,30 +9,31 @@ import WidgetKit
 import SwiftUI
 
 struct Provider: AppIntentTimelineProvider {
-    private func fetchText() -> String {
-        let sharedDefaults = UserDefaults(suiteName: "group.autowidget.app2widge")
-        return sharedDefaults?.string(forKey: "widgetText") ?? "暂无文本"
+    private func fetchText(for instance: WidgetInstanceEntity?) -> String {
+        guard let id = instance?.id else { return "请选择实例" }
+        let defaults = UserDefaults(suiteName: "group.autowidget.app2widge")
+        return defaults?.string(forKey: "widgetText_\(id)") ?? "暂无文本"
     }
-    
+
     func placeholder(in context: Context) -> SimpleEntry {
-        SimpleEntry(date: Date(), configuration: ConfigurationAppIntent(), text: fetchText())
+        SimpleEntry(date: Date(),
+                    configuration: ConfigurationAppIntent(),
+                    text: "占位文本")
     }
-    
+
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SimpleEntry {
-        SimpleEntry(date: Date(), configuration: configuration, text: fetchText())
+        SimpleEntry(date: Date(),
+                    configuration: configuration,
+                    text: fetchText(for: configuration.instance))
     }
-    
+
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
         let entry = SimpleEntry(
             date: Date(),
             configuration: configuration,
-            text: fetchText()
+            text: fetchText(for: configuration.instance)
         )
-        
-        return Timeline(
-            entries: [entry],
-            policy: .never
-        )
+        return Timeline(entries: [entry], policy: .never)
     }
 }
 
@@ -63,25 +64,4 @@ struct ShowWidget: Widget {
                 .containerBackground(.fill.tertiary, for: .widget)
         }
     }
-}
-
-extension ConfigurationAppIntent {
-    fileprivate static var smiley: ConfigurationAppIntent {
-        let intent = ConfigurationAppIntent()
-        intent.favoriteEmoji = "😀"
-        return intent
-    }
-    
-    fileprivate static var starEyes: ConfigurationAppIntent {
-        let intent = ConfigurationAppIntent()
-        intent.favoriteEmoji = "🤩"
-        return intent
-    }
-}
-
-#Preview(as: .systemSmall) {
-    ShowWidget()
-} timeline: {
-    SimpleEntry(date: .now, configuration: .smiley, text: "预览文本")
-    SimpleEntry(date: .now, configuration: .starEyes, text: "快捷指令结果示例")
 }
