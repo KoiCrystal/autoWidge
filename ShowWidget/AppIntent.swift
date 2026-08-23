@@ -40,7 +40,7 @@ struct WidgetInstanceQuery: EntityQuery {
 
     // 从共享 UserDefaults 加载全部实例
     func loadAllInstances() -> [WidgetInstanceEntity] {
-        let defaults = UserDefaults(suiteName: "group.autowidget.app2widge")
+        let defaults = UserDefaults(suiteName: "group.autowidget.app2widget")
         guard let data = defaults?.data(forKey: "widgetInstances"),
               let decoded = try? JSONDecoder().decode([WidgetInstanceEntity].self, from: data) else {
             // 首次运行时创建默认实例
@@ -52,7 +52,7 @@ struct WidgetInstanceQuery: EntityQuery {
     }
 
     func saveInstances(_ instances: [WidgetInstanceEntity]) {
-        let defaults = UserDefaults(suiteName: "group.autowidget.app2widge")
+        let defaults = UserDefaults(suiteName: "group.autowidget.app2widget")
         if let data = try? JSONEncoder().encode(instances) {
             defaults?.set(data, forKey: "widgetInstances")
         }
@@ -105,7 +105,7 @@ struct UpdateWidgetTextIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
-        let defaults = UserDefaults(suiteName: "group.autowidget.app2widge")
+        let defaults = UserDefaults(suiteName: "group.autowidget.app2widget")
         // 使用实例 ID 作为键的一部分，实现独立存储
         defaults?.set(shortcutText, forKey: "widgetText_\(instance.id)")
         WidgetCenter.shared.reloadAllTimelines()
