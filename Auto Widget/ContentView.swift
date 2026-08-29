@@ -10,7 +10,7 @@ import AppIntents
 
 struct ContentView: View {
     @State private var newName: String = ""
-    @State private var instances: [WidgetInstanceEntity] = []
+    @State private var instances: [WidgetDataSourceEntity] = []
     @State private var message: String = ""
 
     var body: some View {

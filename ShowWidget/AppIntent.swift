@@ -9,7 +9,7 @@ import AppIntents
 import WidgetKit
 
 // MARK: - 小组件实例实体
-struct WidgetInstanceEntity: AppEntity, Codable {
+struct WidgetDataSourceEntity: AppEntity, Codable {
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "小组件实例"
     static var defaultQuery = WidgetInstanceQuery()
 
@@ -23,35 +23,35 @@ struct WidgetInstanceEntity: AppEntity, Codable {
 
 // MARK: - 查询与管理实例
 struct WidgetInstanceQuery: EntityQuery {
-    func entities(for identifiers: [String]) async throws -> [WidgetInstanceEntity] {
+    func entities(for identifiers: [String]) async throws -> [WidgetDataSourceEntity] {
         let all = loadAllInstances()
         return identifiers.compactMap { id in
             all.first { $0.id == id }
         }
     }
 
-    func suggestedEntities() async throws -> [WidgetInstanceEntity] {
+    func suggestedEntities() async throws -> [WidgetDataSourceEntity] {
         loadAllInstances()
     }
 
-    func defaultResult() async -> WidgetInstanceEntity? {
+    func defaultResult() async -> WidgetDataSourceEntity? {
         loadAllInstances().first
     }
 
     // 从共享 UserDefaults 加载全部实例
-    func loadAllInstances() -> [WidgetInstanceEntity] {
+    func loadAllInstances() -> [WidgetDataSourceEntity] {
         let defaults = UserDefaults(suiteName: "group.autowidget.app2widget")
         guard let data = defaults?.data(forKey: "widgetInstances"),
-              let decoded = try? JSONDecoder().decode([WidgetInstanceEntity].self, from: data) else {
+              let decoded = try? JSONDecoder().decode([WidgetDataSourceEntity].self, from: data) else {
             // 首次运行时创建默认实例
-            let defaultInstance = WidgetInstanceEntity(id: UUID().uuidString, name: "默认小组件")
+            let defaultInstance = WidgetDataSourceEntity(id: UUID().uuidString, name: "默认小组件")
             saveInstances([defaultInstance])
             return [defaultInstance]
         }
         return decoded
     }
 
-    func saveInstances(_ instances: [WidgetInstanceEntity]) {
+    func saveInstances(_ instances: [WidgetDataSourceEntity]) {
         let defaults = UserDefaults(suiteName: "group.autowidget.app2widget")
         if let data = try? JSONEncoder().encode(instances) {
             defaults?.set(data, forKey: "widgetInstances")
@@ -71,8 +71,8 @@ struct CreateWidgetInstanceIntent: AppIntent {
         Summary("创建名为 \(\.$name) 的小组件实例")
     }
 
-    func perform() async throws -> some IntentResult & ReturnsValue<WidgetInstanceEntity> {
-        let newInstance = WidgetInstanceEntity(id: UUID().uuidString, name: name)
+    func perform() async throws -> some IntentResult & ReturnsValue<WidgetDataSourceEntity> {
+        let newInstance = WidgetDataSourceEntity(id: UUID().uuidString, name: name)
         var instances = WidgetInstanceQuery().loadAllInstances()
         instances.append(newInstance)
         WidgetInstanceQuery().saveInstances(instances)
@@ -86,7 +86,7 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
     static var description: IntentDescription { "选择要显示的小组件实例" }
 
     @Parameter(title: "小组件实例")
-    var instance: WidgetInstanceEntity?
+    var instance: WidgetDataSourceEntity?
 }
 
 // MARK: - 更新后的文本更新意图（现需指定实例）
@@ -95,7 +95,7 @@ struct UpdateWidgetTextIntent: AppIntent {
     static var description = IntentDescription("将文本写入指定的小组件实例")
 
     @Parameter(title: "目标实例")
-    var instance: WidgetInstanceEntity
+    var instance: WidgetDataSourceEntity
 
     @Parameter(title: "文本内容")
     var shortcutText: String

@@ -9,7 +9,7 @@ import WidgetKit
 import SwiftUI
 
 struct Provider: AppIntentTimelineProvider {
-    private func fetchText(for instance: WidgetInstanceEntity?) -> String {
+    private func fetchText(for instance: WidgetDataSourceEntity?) -> String {
         guard let id = instance?.id else { return "请选择实例" }
         let defaults = UserDefaults(suiteName: "group.autowidget.app2widget")
         return defaults?.string(forKey: "widgetText_\(id)") ?? "暂无文本"
