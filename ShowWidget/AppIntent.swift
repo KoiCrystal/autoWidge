@@ -57,6 +57,17 @@ struct WidgetInstanceQuery: EntityQuery {
             defaults?.set(data, forKey: "widgetInstances")
         }
     }
+    
+    func deleteInstances(withIDs ids: Set<String>) {
+        var instances = loadAllInstances()
+
+        // from offset to get id
+        instances.removeAll { instance in
+            ids.contains(instance.id)
+        }
+
+        saveInstances(instances)
+    }
 }
 
 // MARK: - 创建新实例的意图（可在快捷指令中调用）

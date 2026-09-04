@@ -9,56 +9,83 @@ import SwiftUI
 import AppIntents
 
 struct ContentView: View {
-    @State private var newName: String = ""
     @State private var instances: [WidgetDataSourceEntity] = []
+    @State private var searchText: String = ""
     @State private var message: String = ""
 
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                TextField("输入实例名称", text: $newName)
-                    .textFieldStyle(.roundedBorder)
-                    .padding(.horizontal)
-
-                Button("创建新实例") {
-                    Task {
-                        await createInstance()
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
-
-                if !message.isEmpty {
-                    Text(message)
-                        .foregroundStyle(.secondary)
-                        .font(.footnote)
-                }
-
-                List(instances, id: \.id) { instance in
-                    Text(instance.name)
-                }
-            }
-            .padding()
-            .navigationTitle("小组件实例管理")
-            .onAppear {
-                refreshInstances()
-            }
+    private var filteredInstances: [WidgetDataSourceEntity] {
+        if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            return instances
+        }
+        return instances.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText)
         }
     }
 
-    private func createInstance() async {
-        let intent = CreateWidgetInstanceIntent()
-        intent.name = newName.trimmingCharacters(in: .whitespaces)
+    var body: some View {
+        NavigationStack {
+            // MARK: - Instance List
+            List {
+                if filteredInstances.isEmpty {
+                    ContentUnavailableView(
+                        "暂无实例",
+                        systemImage: "square.stack.3d.up.slash",
+                        description: Text(
+                            searchText.isEmpty
+                            ? "点击右下角按钮创建新的小组件实例"
+                            : "未找到匹配的实例"
+                        )
+                    )
+                } else {
+                    ForEach(filteredInstances, id: \.id) { instance in
+                        Text(instance.name)
+                    }
+                    .onDelete { offsets in
+                        let ids = Set(
+                            offsets.map { filteredInstances[$0].id }
+                        )
 
-        do {
-            let result = try await intent.perform()
-            if let entity = result.value {
-                message = "已成功创建：\(entity.name)"
-                newName = ""
+                        WidgetInstanceQuery().deleteInstances(withIDs: ids)
+
+                        refreshInstances()
+                    }
+                    
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("小组件实例管理")
+            .overlay(alignment: .top) {
+                if !message.isEmpty {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                        .transition(.opacity)
+                }
+            }
+            .searchable(text: $searchText, prompt: "搜索")
+            
+            .toolbar { ToolbarItem( placement: .topBarTrailing ) { NavigationLink { CreateInstanceView { successMessage in      message = successMessage
+                    refreshInstances()
+                    }
+                } label: { Image(systemName: "plus") } }
+            }
+            
+            .onAppear {
                 refreshInstances()
             }
-        } catch {
-            message = "创建失败：\(error.localizedDescription)"
+            .onChange(of: message) { _, newValue in
+                guard !newValue.isEmpty else { return }
+
+                Task {
+                    try? await Task.sleep(for: .seconds(2.5))
+
+                    withAnimation {
+                        message = ""
+                    }
+                }
+            }
         }
     }
 
@@ -66,3 +93,10 @@ struct ContentView: View {
         instances = WidgetInstanceQuery().loadAllInstances()
     }
 }
+
+
+#Preview {
+    ContentView()
+}
+
+
