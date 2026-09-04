@@ -52,13 +52,6 @@ struct CreateInstanceView: View {
         }
         .navigationTitle("新建实例")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("取消") {
-                    dismiss()
-                }
-            }
-        }
     }
 
     private func createInstance() async {
