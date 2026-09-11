@@ -12,7 +12,7 @@ struct ContentView: View {
     @State private var instances: [WidgetDataSourceEntity] = []
     @State private var searchText: String = ""
     @State private var message: String = ""
-
+    
     private var filteredInstances: [WidgetDataSourceEntity] {
         if searchText.trimmingCharacters(in: .whitespaces).isEmpty {
             return instances
@@ -21,7 +21,7 @@ struct ContentView: View {
             $0.name.localizedCaseInsensitiveContains(searchText)
         }
     }
-
+    
     var body: some View {
         NavigationStack {
             // MARK: - Instance List
@@ -44,9 +44,9 @@ struct ContentView: View {
                         let ids = Set(
                             offsets.map { filteredInstances[$0].id }
                         )
-
+                        
                         WidgetInstanceQuery().deleteInstances(withIDs: ids)
-
+                        
                         refreshInstances()
                     }
                     
@@ -65,11 +65,20 @@ struct ContentView: View {
                 }
             }
             .searchable(text: $searchText, prompt: "搜索")
-            
-            .toolbar { ToolbarItem( placement: .topBarTrailing ) { NavigationLink { CreateInstanceView { successMessage in      message = successMessage
-                    refreshInstances()
+        
+            .toolbar {
+                DefaultToolbarItem(kind: .search, placement: .bottomBar)
+                ToolbarSpacer(.flexible, placement: .bottomBar)
+                ToolbarItem(placement: .bottomBar) {
+                    NavigationLink {
+                        CreateInstanceView {
+                            successMessage in message = successMessage
+                            refreshInstances()
+                        }
+                    } label: {
+                        Image(systemName: "plus")
                     }
-                } label: { Image(systemName: "plus") } }
+                }
             }
             
             .onAppear {
@@ -77,10 +86,10 @@ struct ContentView: View {
             }
             .onChange(of: message) { _, newValue in
                 guard !newValue.isEmpty else { return }
-
+                
                 Task {
                     try? await Task.sleep(for: .seconds(2.5))
-
+                    
                     withAnimation {
                         message = ""
                     }
@@ -88,7 +97,7 @@ struct ContentView: View {
             }
         }
     }
-
+    
     private func refreshInstances() {
         instances = WidgetInstanceQuery().loadAllInstances()
     }
