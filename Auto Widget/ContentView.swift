@@ -37,8 +37,16 @@ struct ContentView: View {
                         )
                     )
                 } else {
+                    // 列表点击进入编辑
                     ForEach(filteredInstances, id: \.id) { instance in
-                        Text(instance.name)
+                        NavigationLink {
+                            InstanceEditorView(existingInstance: instance) { message in
+                                self.message = message
+                                refreshInstances()
+                            }
+                        } label: {
+                            Text(instance.name)
+                        }
                     }
                     .onDelete { offsets in
                         let ids = Set(
@@ -53,6 +61,8 @@ struct ContentView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            // 取消列表后的小箭头
+            .navigationLinkIndicatorVisibility(.hidden)
             .navigationTitle("小组件实例管理")
             .overlay(alignment: .top) {
                 if !message.isEmpty {
@@ -65,14 +75,16 @@ struct ContentView: View {
                 }
             }
             .searchable(text: $searchText, prompt: "搜索")
+//            目前的api 不支持
+//            .searchDictationBehavior(.automatic)
         
             .toolbar {
                 DefaultToolbarItem(kind: .search, placement: .bottomBar)
                 ToolbarSpacer(.flexible, placement: .bottomBar)
                 ToolbarItem(placement: .bottomBar) {
                     NavigationLink {
-                        CreateInstanceView {
-                            successMessage in message = successMessage
+                        InstanceEditorView {
+                            message in self.message = message
                             refreshInstances()
                         }
                     } label: {

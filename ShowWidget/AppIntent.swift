@@ -70,10 +70,11 @@ struct WidgetInstanceQuery: EntityQuery {
     }
 }
 
-// MARK: - 创建新实例的意图（可在快捷指令中调用）
+// MARK: - 创建新实例的意图（不可在快捷指令中调用）
 struct CreateWidgetInstanceIntent: AppIntent {
     static var title: LocalizedStringResource = "创建新的小组件实例"
     static var description = IntentDescription("创建一个可独立更新的小组件实例")
+    static var isDiscoverable: Bool { false }
 
     @Parameter(title: "实例名称")
     var name: String
