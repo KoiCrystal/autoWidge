@@ -45,10 +45,18 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FD295C29308D0D8600FCA239 /* Exceptions for "Auto Widget" folder in "ShowWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				InstanceEditorView.swift,
+			);
+			target = FDD9686B2FADD93C00744915 /* ShowWidgetExtension */;
+		};
 		FD824AA430399611001999EC /* Exceptions for "ShowWidget" folder in "Auto Widget" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				AppIntent.swift,
+				ShowWidget.swift,
 			);
 			target = FDD968592FADCA0500744915 /* Auto Widget */;
 		};
@@ -64,6 +72,9 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		FDD9685C2FADCA0500744915 /* Auto Widget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FD295C29308D0D8600FCA239 /* Exceptions for "Auto Widget" folder in "ShowWidgetExtension" target */,
+			);
 			path = "Auto Widget";
 			sourceTree = "<group>";
 		};

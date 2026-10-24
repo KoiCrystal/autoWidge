@@ -2,7 +2,7 @@
 //  Auto_WidgetApp.swift
 //  Auto Widget
 //
-//  Created by Jinyu Zhang & Zhaomin Wu on 2026/5/8.
+//  Created by Zhaomin Wu & Jinyu Zhang on 2026/5/8.
 //
 
 import SwiftUI

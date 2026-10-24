@@ -2,7 +2,7 @@
 //  AppIntent.swift
 //  ShowWidget
 //
-//  Created by Jinyu Zhang on 2026/5/8.
+//  Created by Zhaomin Wu & Jinyu Zhang on 2026/5/8.
 //
 
 import AppIntents
@@ -15,6 +15,10 @@ struct WidgetDataSourceEntity: AppEntity, Codable {
 
     var id: String
     var name: String
+    var text: String?
+    var updatedAt: Date?
+    var backgroundColorName: String? // 例如: "white", "yellow", "blue", "systemPink" 等
+    var fontSize: CGFloat?
 
     var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(title: "\(name)")
@@ -117,9 +121,15 @@ struct UpdateWidgetTextIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
-        let defaults = UserDefaults(suiteName: "group.autowidget.app2widget")
-        // 使用实例 ID 作为键的一部分，实现独立存储
-        defaults?.set(shortcutText, forKey: "widgetText_\(instance.id)")
+        let query = WidgetInstanceQuery()
+        var instances = query.loadAllInstances()
+        
+        if let index = instances.firstIndex(where: { $0.id == instance.id }) {
+            instances[index].text = shortcutText
+            instances[index].updatedAt = Date()
+            query.saveInstances(instances)
+        }
+        
         WidgetCenter.shared.reloadAllTimelines()
         return .result(value: shortcutText)
     }

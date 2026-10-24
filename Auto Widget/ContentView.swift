@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  Auto Widget
 //
-//  Created by Jinyu Zhang & Zhaomin Wu on 2026/5/8.
+//  Created by Zhaomin Wu & Jinyu Zhang on 2026/5/8.
 //
 
 import SwiftUI
@@ -45,7 +45,17 @@ struct ContentView: View {
                                 refreshInstances()
                             }
                         } label: {
-                            Text(instance.name)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(instance.name)
+                                    .font(.headline)
+                                
+                                // 显示当前文本，如果没有内容则显示灰色提示
+                                Text(instance.text ?? "暂无内容")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary) // 次要文本色
+                                    .lineLimit(1) // 限制只显示单行，避免文本太长撑乱布局
+                            }
+                            .padding(.vertical, 4)
                         }
                     }
                     .onDelete { offsets in
@@ -75,9 +85,9 @@ struct ContentView: View {
                 }
             }
             .searchable(text: $searchText, prompt: "搜索")
-//            目前的api 不支持
-//            .searchDictationBehavior(.automatic)
-        
+            //            目前的api 不支持
+            //            .searchDictationBehavior(.automatic)
+            
             .toolbar {
                 DefaultToolbarItem(kind: .search, placement: .bottomBar)
                 ToolbarSpacer(.flexible, placement: .bottomBar)
