@@ -2,7 +2,7 @@
 //  ShowWidgetLiveActivity.swift
 //  ShowWidget
 //
-//  Created by Jinyu Zhang on 2026/5/8.
+//  Created by Zhaomin Wu & Jinyu Zhang on 2026/5/8.
 //
 
 import ActivityKit

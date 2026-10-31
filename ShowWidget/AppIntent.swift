@@ -17,7 +17,10 @@ struct WidgetDataSourceEntity: AppEntity, Codable {
     var name: String
     var text: String?
     var updatedAt: Date?
-    var backgroundColorName: String? // 例如: "white", "yellow", "blue", "systemPink" 等
+    var backgroundColorName: String? // color hex
+    var backgroundType: String?    // 背景类型："system" (跟随系统), "color" (自定义颜色), "image" (自定义图片)
+    var backgroundImageName: String? // 共享容器中的图片文件名
+    
     var fontSize: CGFloat?
 
     var displayRepresentation: DisplayRepresentation {
@@ -48,7 +51,7 @@ struct WidgetInstanceQuery: EntityQuery {
         guard let data = defaults?.data(forKey: "widgetInstances"),
               let decoded = try? JSONDecoder().decode([WidgetDataSourceEntity].self, from: data) else {
             // 首次运行时创建默认实例
-            let defaultInstance = WidgetDataSourceEntity(id: UUID().uuidString, name: "默认小组件")
+            let defaultInstance = WidgetDataSourceEntity(id: "default_widget_instance_id", name: "默认小组件")
             saveInstances([defaultInstance])
             return [defaultInstance]
         }

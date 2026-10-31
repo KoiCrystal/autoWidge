@@ -2,7 +2,7 @@
 //  ShowWidgetBundle.swift
 //  ShowWidget
 //
-//  Created by Jinyu Zhang on 2026/5/8.
+//  Created by Zhaomin Wu & Jinyu Zhang on 2026/5/8.
 //
 
 import WidgetKit
@@ -12,7 +12,6 @@ import SwiftUI
 struct ShowWidgetBundle: WidgetBundle {
     var body: some Widget {
         ShowWidget()
-        ShowWidgetControl()
         ShowWidgetLiveActivity()
     }
 }
