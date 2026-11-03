@@ -48,6 +48,7 @@
 		FD295C29308D0D8600FCA239 /* Exceptions for "Auto Widget" folder in "ShowWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				ContentView.swift,
 				InstanceEditorView.swift,
 			);
 			target = FDD9686B2FADD93C00744915 /* ShowWidgetExtension */;

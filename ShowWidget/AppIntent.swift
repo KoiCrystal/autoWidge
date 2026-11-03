@@ -17,11 +17,16 @@ struct WidgetDataSourceEntity: AppEntity, Codable {
     var name: String
     var text: String?
     var updatedAt: Date?
+    var textUpdatedAt: Date?    // 新增：专门记录快捷指令更新文本的时间
     var backgroundColorName: String? // color hex
-    var backgroundType: String?    // 背景类型："system" (跟随系统), "color" (自定义颜色), "image" (自定义图片)
+    var backgroundType: String?    // 背景类型："system" (系统), "color" (自定义颜色), "image" (自定义图片)
     var backgroundImageName: String? // 共享容器中的图片文件名
     
     var fontSize: CGFloat?
+    var textColorType: String?     // 文字颜色类型 (是否跟随系统
+    var textColorName: String?     // 文字颜色与透明度 hex (RGBA)
+    var fontStyle: String?         // 字体样式 ("system", "monospaced", "serif", "rounded")
+    var isLiquidGlass: Bool?       // 是否开启液态玻璃效果
 
     var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(title: "\(name)")
@@ -129,7 +134,7 @@ struct UpdateWidgetTextIntent: AppIntent {
         
         if let index = instances.firstIndex(where: { $0.id == instance.id }) {
             instances[index].text = shortcutText
-            instances[index].updatedAt = Date()
+            instances[index].textUpdatedAt = Date()
             query.saveInstances(instances)
         }
         

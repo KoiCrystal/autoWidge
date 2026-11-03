@@ -24,6 +24,19 @@ enum BackgroundMode: String, CaseIterable {
     }
 }
 
+// 💡 新增：文字颜色模式枚举
+enum TextColorMode: String, CaseIterable {
+    case system = "system"
+    case color = "color"
+    
+    var title: String {
+        switch self {
+        case .system: return "跟随系统"
+        case .color: return "自定义颜色"
+        }
+    }
+}
+
 struct InstanceEditorView: View {
     
     let existingInstance: WidgetDataSourceEntity?
@@ -32,12 +45,19 @@ struct InstanceEditorView: View {
     @State private var name: String
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var textUpdatedAt: Date?
     
     // 背景相关状态
     @State private var backgroundMode: BackgroundMode = .system
     @State private var selectedColor: Color = .white
-    @State private var selectedFontSize: CGFloat = 17
     @State private var currentText: String = "暂无文本"
+    
+    // 外观与字体相关状态
+    @State private var textColorMode: TextColorMode = .system // 💡 文字颜色模式
+    @State private var textColor: Color = .white
+    @State private var fontStyle: String = "system"
+    @State private var isLiquidGlass: Bool = false
+    @State private var selectedFontSize: CGFloat = 17
     
     // 图片选择状态
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
@@ -60,15 +80,26 @@ struct InstanceEditorView: View {
             if let latest = all.first(where: { $0.id == instance.id }) {
                 _currentText = State(initialValue: latest.text ?? "暂无文本")
                 _selectedFontSize = State(initialValue: latest.fontSize ?? 17)
+                _textUpdatedAt = State(initialValue: latest.textUpdatedAt)
                 
                 // 恢复背景模式
                 let mode = latest.backgroundType ?? (latest.backgroundColorName != nil ? "color" : "system")
                 _backgroundMode = State(initialValue: BackgroundMode(rawValue: mode) ?? .system)
                 
-                // 恢复颜色
+                // 恢复背景颜色
                 if let colorHex = latest.backgroundColorName {
                     _selectedColor = State(initialValue: Color(hex: colorHex))
                 }
+                
+                // 恢复文字颜色模式与颜色
+                let tMode = latest.textColorType ?? (latest.textColorName != nil ? "color" : "system")
+                _textColorMode = State(initialValue: TextColorMode(rawValue: tMode) ?? .system)
+                if let tColorHex = latest.textColorName {
+                    _textColor = State(initialValue: Color(hex: tColorHex))
+                }
+                
+                _fontStyle = State(initialValue: latest.fontStyle ?? "system")
+                _isLiquidGlass = State(initialValue: latest.isLiquidGlass ?? false)
                 
                 // 恢复图片
                 if let imageName = latest.backgroundImageName {
@@ -89,10 +120,13 @@ struct InstanceEditorView: View {
             backgroundColorName: selectedColor.toHex(),
             backgroundType: backgroundMode.rawValue,
             backgroundImageName: savedImageFileName,
-            fontSize: selectedFontSize
+            fontSize: selectedFontSize,
+            textColorType: textColorMode.rawValue,
+            textColorName: textColorMode == .color ? textColor.toHex() : nil,
+            fontStyle: fontStyle,
+            isLiquidGlass: isLiquidGlass
         )
         config.instance = mockEntity
-        // 这里传入 resolvedInstance: mockEntity
         return SimpleEntry(date: Date(), configuration: config, resolvedInstance: mockEntity, text: currentText)
     }
     
@@ -118,7 +152,6 @@ struct InstanceEditorView: View {
             Section {
                 VStack {
                     ZStack {
-                        // 背景渲染与手势交互
                         Group {
                             switch backgroundMode {
                             case .system:
@@ -129,7 +162,7 @@ struct InstanceEditorView: View {
                                 if let selectedImage {
                                     Image(uiImage: selectedImage)
                                         .resizable()
-                                        .scaledToFit() // 💡 改为 scaledToFit，完整展示长方形原图
+                                        .scaledToFit()
                                         .scaleEffect(imageScale)
                                         .offset(imageOffset)
                                         .gesture(
@@ -187,63 +220,43 @@ struct InstanceEditorView: View {
             }
             .listSectionSeparator(.hidden)
             
-            // 背景设置：系统列表样式，选中后打勾，并动态展开对应控件
+            // 背景设置
             Section("背景样式") {
-                // 1. 跟随系统
-                Button {
-                    backgroundMode = .system
-                } label: {
+                Button { backgroundMode = .system } label: {
                     HStack {
-                        Text(BackgroundMode.system.title)
-                            .foregroundStyle(.primary)
+                        Text(BackgroundMode.system.title).foregroundStyle(.primary)
                         Spacer()
                         if backgroundMode == .system {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(.tint)
-                                .font(.body.weight(.semibold))
+                            Image(systemName: "checkmark").foregroundStyle(.tint).font(.body.weight(.semibold))
                         }
                     }
                 }
                 
-                // 2. 自定义颜色
-                Button {
-                    backgroundMode = .color
-                } label: {
+                Button { backgroundMode = .color } label: {
                     HStack {
-                        Text(BackgroundMode.color.title)
-                            .foregroundStyle(.primary)
+                        Text(BackgroundMode.color.title).foregroundStyle(.primary)
                         Spacer()
                         if backgroundMode == .color {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(.tint)
-                                .font(.body.weight(.semibold))
+                            Image(systemName: "checkmark").foregroundStyle(.tint).font(.body.weight(.semibold))
                         }
                     }
                 }
                 
-                // 只有当选中“自定义颜色”时才出现取色器
                 if backgroundMode == .color {
                     ColorPicker("选择背景颜色", selection: $selectedColor)
                         .foregroundStyle(.tint)
                 }
                 
-                // 3. 自定义图片
-                Button {
-                    backgroundMode = .image
-                } label: {
+                Button { backgroundMode = .image } label: {
                     HStack {
-                        Text(BackgroundMode.image.title)
-                            .foregroundStyle(.primary)
+                        Text(BackgroundMode.image.title).foregroundStyle(.primary)
                         Spacer()
                         if backgroundMode == .image {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(.tint)
-                                .font(.body.weight(.semibold))
+                            Image(systemName: "checkmark").foregroundStyle(.tint).font(.body.weight(.semibold))
                         }
                     }
                 }
                 
-                // 只有当选中“自定义图片”时才出现图片选择器
                 if backgroundMode == .image {
                     PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                         HStack {
@@ -256,8 +269,7 @@ struct InstanceEditorView: View {
                                     .frame(width: 32, height: 32)
                                     .clipShape(RoundedRectangle(cornerRadius: 6))
                             } else {
-                                Text("未选择")
-                                    .foregroundStyle(.secondary)
+                                Text("未选择").foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -276,11 +288,77 @@ struct InstanceEditorView: View {
                 }
             }
             
-            // 文字大小设置
-            Section("外观设置") {
+            // 💡 文字与外观设置
+            Section("TEXT") {
+                
+                // 1. 文字颜色：跟随系统
+                Button { textColorMode = .system } label: {
+                    HStack {
+                        Text(" \(TextColorMode.system.title)")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if textColorMode == .system {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.tint)
+                                .font(.body.weight(.semibold))
+                        }
+                    }
+                }
+                
+                // 2. 文字颜色：自定义颜色
+                Button { textColorMode = .color } label: {
+                    HStack {
+                        Text("\(TextColorMode.color.title)")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if textColorMode == .color {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.tint)
+                                .font(.body.weight(.semibold))
+                        }
+                    }
+                }
+                
+                // 只有当选中“自定义颜色”时才动态展开取色器
+                if textColorMode == .color {
+                    ColorPicker("选择文字颜色与透明度", selection: $textColor)
+                        .foregroundStyle(.tint)
+                }
+                
+                // 字体风格选择
+                Picker("字体样式", selection: $fontStyle) {
+                    Text("系统默认").tag("system")
+                    Text("等宽").tag("monospaced")
+                    Text("serif").tag("serif")
+                    Text("圆体").tag("rounded")
+                }
+                
+                // 液态玻璃开关
+                Toggle("液态玻璃晶莹质感", isOn: $isLiquidGlass)
+                
                 VStack(alignment: .leading) {
                     Text("文字大小: \(Int(selectedFontSize)) pt")
                     Slider(value: $selectedFontSize, in: 12...32, step: 1)
+                }
+            }
+            
+            
+            
+            Section {
+                HStack {
+                    Text("最后更新时间")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if let textUpdatedAt {
+                        HStack(spacing: 0) {
+                            Text(textUpdatedAt, style: .relative)
+                            Text("前")
+                        }
+                        .foregroundStyle(.secondary)
+                    } else {
+                        Text("从未通过快捷指令更新")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
@@ -312,9 +390,13 @@ struct InstanceEditorView: View {
         let query = WidgetInstanceQuery()
         var instances = query.loadAllInstances()
         let colorHex = selectedColor.toHex()
+        
+        // 根据选择的文字颜色模式决定保存内容
+        let textColorHex = textColorMode == .color ? textColor.toHex() : nil
+        let textColorType = textColorMode.rawValue
+        
         let instanceID = existingInstance?.id ?? UUID().uuidString
         
-        // 💡 如果当前是图片模式，利用 ImageRenderer 将用户调整好的缩放/平移画面“快照裁切”为最终图片
         if backgroundMode == .image, let selectedImage = selectedImage {
             let finalImage = await renderCroppedImage(image: selectedImage, scale: imageScale, offset: imageOffset)
             if let finalImage, let fileName = SharedImageHelper.saveImage(finalImage, for: instanceID) {
@@ -329,6 +411,10 @@ struct InstanceEditorView: View {
                 instances[index].backgroundType = backgroundMode.rawValue
                 instances[index].backgroundImageName = savedImageFileName
                 instances[index].fontSize = selectedFontSize
+                instances[index].textColorName = textColorHex
+                instances[index].textColorType = textColorType // 💡 保存文字颜色类型
+                instances[index].fontStyle = fontStyle
+                instances[index].isLiquidGlass = isLiquidGlass
                 
                 query.saveInstances(instances)
                 currentText = instances[index].text ?? "暂无文本"
@@ -340,10 +426,15 @@ struct InstanceEditorView: View {
             let newInstance = WidgetDataSourceEntity(
                 id: instanceID,
                 name: trimmed,
+                textUpdatedAt: nil,
                 backgroundColorName: colorHex,
                 backgroundType: backgroundMode.rawValue,
                 backgroundImageName: savedImageFileName,
-                fontSize: selectedFontSize
+                fontSize: selectedFontSize,
+                textColorType: textColorType,
+                textColorName: textColorHex,
+                fontStyle: fontStyle,
+                isLiquidGlass: isLiquidGlass
             )
             instances.append(newInstance)
             query.saveInstances(instances)
@@ -361,27 +452,20 @@ private func renderCroppedImage(image: UIImage, scale: CGFloat, offset: CGSize) 
     let renderView = ZStack {
         Image(uiImage: image)
             .resizable()
-            .scaledToFit() // 💡 保持与预览一致
+            .scaledToFit()
             .scaleEffect(scale)
             .offset(offset)
     }
-    .frame(width: 300, height: 300) // 高分辨率正方形画布
+    .frame(width: 300, height: 300)
     .clipped()
     
     let renderer = ImageRenderer(content: renderView)
-    renderer.scale = 2.0 // 2x Retina 清晰度
+    renderer.scale = 2.0
     return renderer.uiImage
 }
 
-
-
-
-
-
-
 // MARK: photo
 struct SharedImageHelper {
-    // 将图片保存到 App Group 共享容器
     static func saveImage(_ image: UIImage, for instanceID: String) -> String? {
         let fileName = "widget_bg_\(instanceID).jpg"
         guard let data = image.jpegData(compressionQuality: 0.85),
@@ -398,7 +482,6 @@ struct SharedImageHelper {
         }
     }
     
-    // 从 App Group 共享容器加载图片
     static func loadImage(fileName: String?) -> UIImage? {
         guard let fileName = fileName,
               let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.autowidget.app2widget") else {
@@ -412,8 +495,6 @@ struct SharedImageHelper {
     }
 }
 
-
-
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -421,9 +502,9 @@ extension Color {
         Scanner(string: hex).scanHexInt64(&int)
         let r, g, b, a: UInt64
         switch hex.count {
-        case 6: // RGB (24位) -> #RRGGBB
+        case 6:
             (r, g, b, a) = ((int >> 16) & 0xFF, (int >> 8) & 0xFF, int & 0xFF, 255)
-        case 8: // RGBA (32位) -> #RRGGBBAA
+        case 8:
             (r, g, b, a) = ((int >> 24) & 0xFF, (int >> 16) & 0xFF, (int >> 8) & 0xFF, int & 0xFF)
         default:
             (r, g, b, a) = (255, 255, 255, 255)
@@ -447,6 +528,7 @@ extension Color {
         let b = Int(blue * 255)
         let a = Int(alpha * 255)
         
+        String(format: "#%02x%02x%02x%02x", r, g, b, a)
         return String(format: "#%02x%02x%02x%02x", r, g, b, a)
     }
 }
