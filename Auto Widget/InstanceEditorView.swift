@@ -55,6 +55,7 @@ struct InstanceEditorView: View {
     // 外观与字体相关状态
     @State private var textColorMode: TextColorMode = .system // 💡 文字颜色模式
     @State private var textColor: Color = .white
+    @State private var selectedFontWidth: CGFloat = 0.0
     @State private var fontStyle: String = "system"
     @State private var isLiquidGlass: Bool = false
     @State private var selectedFontSize: CGFloat = 17
@@ -100,6 +101,7 @@ struct InstanceEditorView: View {
                 
                 _fontStyle = State(initialValue: latest.fontStyle ?? "system")
                 _isLiquidGlass = State(initialValue: latest.isLiquidGlass ?? false)
+                _selectedFontWidth = State(initialValue: latest.fontWidth ?? 0.0)
                 
                 // 恢复图片
                 if let imageName = latest.backgroundImageName {
@@ -121,6 +123,7 @@ struct InstanceEditorView: View {
             backgroundType: backgroundMode.rawValue,
             backgroundImageName: savedImageFileName,
             fontSize: selectedFontSize,
+            fontWidth: selectedFontWidth,
             textColorType: textColorMode.rawValue,
             textColorName: textColorMode == .color ? textColor.toHex() : nil,
             fontStyle: fontStyle,
@@ -340,6 +343,11 @@ struct InstanceEditorView: View {
                     Text("文字大小: \(Int(selectedFontSize)) pt")
                     Slider(value: $selectedFontSize, in: 12...32, step: 1)
                 }
+                
+                VStack(alignment: .leading) {
+                    Text("字体宽度: \(String(format: "%.2f", selectedFontWidth))")
+                    Slider(value: $selectedFontWidth, in: -0.4...0.8, step: 0.05)
+                }
             }
             
             
@@ -411,6 +419,7 @@ struct InstanceEditorView: View {
                 instances[index].backgroundType = backgroundMode.rawValue
                 instances[index].backgroundImageName = savedImageFileName
                 instances[index].fontSize = selectedFontSize
+                instances[index].fontWidth = selectedFontWidth
                 instances[index].textColorName = textColorHex
                 instances[index].textColorType = textColorType // 💡 保存文字颜色类型
                 instances[index].fontStyle = fontStyle

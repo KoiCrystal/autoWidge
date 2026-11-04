@@ -23,6 +23,7 @@ struct WidgetDataSourceEntity: AppEntity, Codable {
     var backgroundImageName: String? // 共享容器中的图片文件名
     
     var fontSize: CGFloat?
+    var fontWidth: CGFloat?
     var textColorType: String?     // 文字颜色类型 (是否跟随系统
     var textColorName: String?     // 文字颜色与透明度 hex (RGBA)
     var fontStyle: String?         // 字体样式 ("system", "monospaced", "serif", "rounded")

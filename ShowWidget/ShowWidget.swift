@@ -36,9 +36,9 @@ struct Provider: AppIntentTimelineProvider {
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SimpleEntry {
         let resolved = fetchInstance(for: configuration.instance)
         return SimpleEntry(date: Date(),
-                    configuration: configuration,
-                    resolvedInstance: resolved, // 👈 传入查到的最新实例
-                    text: fetchText(for: configuration.instance))
+                           configuration: configuration,
+                           resolvedInstance: resolved, // 👈 传入查到的最新实例
+                           text: fetchText(for: configuration.instance))
     }
     
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
@@ -62,13 +62,12 @@ struct SimpleEntry: TimelineEntry {
 
 struct ShowWidgetEntryView : View {
     var entry: Provider.Entry
-    @Environment(\.widgetRenderingMode)
-    private var renderingMode
-
+    @Environment(\.widgetRenderingMode) private var renderingMode
     
     var body: some View {
         let instance = entry.resolvedInstance ?? entry.configuration.instance
         let fontSize = instance?.fontSize ?? 17
+        let fontWeightValue = instance?.fontWidth ?? 0.4 // 获取保存的粗细数值 (-0.6 ~ 0.6)
         let fontStyle = instance?.fontStyle ?? "system"
         let textColorType = instance?.textColorType ?? (instance?.textColorName != nil ? "color" : "system")
         let textColorHex = instance?.textColorName ?? "#ffffffff"
@@ -86,12 +85,21 @@ struct ShowWidgetEntryView : View {
             }
         }()
         
-        let textFont: Font = isGlass
-            ? .system(size: fontSize, weight: .bold, design: fontDesign)
-            : .system(size: fontSize, design: fontDesign)
+        // 💡 将浮点数粗细映射为 SwiftUI 的标准 Font.Weight
+        let swiftUIWeight: Font.Weight = {
+            if fontWeightValue < -0.4 { return .ultraLight }
+            if fontWeightValue < -0.2 { return .thin }
+            if fontWeightValue < 0.0  { return .light }
+            if fontWeightValue < 0.15 { return .regular }
+            if fontWeightValue < 0.3  { return .medium }
+            if fontWeightValue < 0.45 { return .semibold }
+            if fontWeightValue < 0.6  { return .bold }
+            return .black
+        }()
         
+        // 普通文字渲染：带入大小、粗细和样式
         let textContent = Text(entry.text)
-            .font(textFont)
+            .font(.system(size: fontSize, weight: swiftUIWeight, design: fontDesign))
             .multilineTextAlignment(.center)
         
         VStack {
@@ -125,14 +133,13 @@ struct ShowWidgetEntryView : View {
                             .frame(width: max(bounds.width, 10), height: max(bounds.height, 10))
                             .glassEffect(.regular, in: textPath)
                     }
-                        // 可选：给玻璃一点颜色倾向
-                        // .glassEffect(.regular.tint(baseColor.opacity(0.25)), in: textPath)
+                    // 可选：给玻璃一点颜色倾向
+                    // .glassEffect(.regular.tint(baseColor.opacity(0.25)), in: textPath)
                     
-                } else {
-                    // 回退方案
                 }
+                
             } else {
-                // 普通文字
+                // 普通文字模式
                 if textColorType == "color" {
                     textContent.foregroundStyle(customTextColor)
                 } else {
@@ -140,8 +147,8 @@ struct ShowWidgetEntryView : View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)   // 强制占满可用空间，稳定布局
-        .contentShape(Rectangle())                          // 帮助系统正确计算尺寸
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
     }
 }
 
@@ -178,6 +185,7 @@ struct ShowWidget: Widget {
         }
     }
 }
+
 
 
 func textToPath(_ text: String, font: UIFont) -> Path {
