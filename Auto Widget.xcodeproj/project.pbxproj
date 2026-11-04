@@ -57,7 +57,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				AppIntent.swift,
-				LiquidGlassText.swift,
 				ShowWidget.swift,
 			);
 			target = FDD968592FADCA0500744915 /* Auto Widget */;
