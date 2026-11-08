@@ -230,7 +230,7 @@ struct InstanceEditorView: View {
                         Text(BackgroundMode.system.title).foregroundStyle(.primary)
                         Spacer()
                         if backgroundMode == .system {
-                            Image(systemName: "checkmark").foregroundStyle(.tint).font(.body.weight(.semibold))
+                            Image(systemName: "checkmark").font(.body.weight(.semibold))
                         }
                     }
                 }
@@ -240,14 +240,14 @@ struct InstanceEditorView: View {
                         Text(BackgroundMode.color.title).foregroundStyle(.primary)
                         Spacer()
                         if backgroundMode == .color {
-                            Image(systemName: "checkmark").foregroundStyle(.tint).font(.body.weight(.semibold))
+                            Image(systemName: "checkmark").font(.body.weight(.semibold))
                         }
                     }
                 }
                 
                 if backgroundMode == .color {
                     ColorPicker("选择背景颜色", selection: $selectedColor)
-                        .foregroundStyle(.tint)
+                        
                 }
                 
                 Button { backgroundMode = .image } label: {
@@ -255,7 +255,7 @@ struct InstanceEditorView: View {
                         Text(BackgroundMode.image.title).foregroundStyle(.primary)
                         Spacer()
                         if backgroundMode == .image {
-                            Image(systemName: "checkmark").foregroundStyle(.tint).font(.body.weight(.semibold))
+                            Image(systemName: "checkmark").font(.body.weight(.semibold))
                         }
                     }
                 }
@@ -302,7 +302,7 @@ struct InstanceEditorView: View {
                         Spacer()
                         if textColorMode == .system {
                             Image(systemName: "checkmark")
-                                .foregroundStyle(.tint)
+                               
                                 .font(.body.weight(.semibold))
                         }
                     }
@@ -316,7 +316,7 @@ struct InstanceEditorView: View {
                         Spacer()
                         if textColorMode == .color {
                             Image(systemName: "checkmark")
-                                .foregroundStyle(.tint)
+                                
                                 .font(.body.weight(.semibold))
                         }
                     }
@@ -325,7 +325,7 @@ struct InstanceEditorView: View {
                 // 只有当选中“自定义颜色”时才动态展开取色器
                 if textColorMode == .color {
                     ColorPicker("选择文字颜色与透明度", selection: $textColor)
-                        .foregroundStyle(.tint)
+                    
                 }
                 
                 // 字体风格选择
@@ -337,7 +337,7 @@ struct InstanceEditorView: View {
                 }
                 
                 // 液态玻璃开关
-                Toggle("液态玻璃晶莹质感", isOn: $isLiquidGlass)
+                // Toggle("液态玻璃晶莹质感", isOn: $isLiquidGlass)
                 
                 VStack(alignment: .leading) {
                     Text("文字大小: \(Int(selectedFontSize)) pt")
@@ -465,8 +465,8 @@ private func renderCroppedImage(image: UIImage, scale: CGFloat, offset: CGSize) 
             .scaleEffect(scale)
             .offset(offset)
     }
-    .frame(width: 300, height: 300)
-    .clipped()
+        .frame(width: 300, height: 300)
+        .clipped()
     
     let renderer = ImageRenderer(content: renderView)
     renderer.scale = 2.0
