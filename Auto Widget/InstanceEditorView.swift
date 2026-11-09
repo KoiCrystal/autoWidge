@@ -211,7 +211,7 @@ struct InstanceEditorView: View {
                     .padding(16)
                     
                     if backgroundMode == .image && selectedImage != nil {
-                        Text("提示：可双指缩放查看长方形原图，单指拖动调整小组件内显示的区域")
+                        Text("双指缩放，单指拖动")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -225,70 +225,154 @@ struct InstanceEditorView: View {
             
             // 背景设置
             Section("背景样式") {
-                Button { backgroundMode = .system } label: {
-                    HStack {
-                        Text(BackgroundMode.system.title).foregroundStyle(.primary)
-                        Spacer()
-                        if backgroundMode == .system {
-                            Image(systemName: "checkmark").font(.body.weight(.semibold))
-                        }
+
+                VStack(spacing: 14) {
+
+                    // MARK: 三选一选择器（固定，不参与动画）
+                    HStack(spacing: 10) {
+
+                        backgroundModeButton(
+                            mode: .system,
+                            title: "系统",
+                            icon: "sun.max"
+                        )
+
+                        backgroundModeButton(
+                            mode: .color,
+                            title: "颜色",
+                            icon: "paintpalette"
+                        )
+
+                        backgroundModeButton(
+                            mode: .image,
+                            title: "图片",
+                            icon: "photo"
+                        )
                     }
-                }
-                
-                Button { backgroundMode = .color } label: {
-                    HStack {
-                        Text(BackgroundMode.color.title).foregroundStyle(.primary)
-                        Spacer()
-                        if backgroundMode == .color {
-                            Image(systemName: "checkmark").font(.body.weight(.semibold))
-                        }
-                    }
-                }
-                
-                if backgroundMode == .color {
-                    ColorPicker("选择背景颜色", selection: $selectedColor)
-                        
-                }
-                
-                Button { backgroundMode = .image } label: {
-                    HStack {
-                        Text(BackgroundMode.image.title).foregroundStyle(.primary)
-                        Spacer()
-                        if backgroundMode == .image {
-                            Image(systemName: "checkmark").font(.body.weight(.semibold))
-                        }
-                    }
-                }
-                
-                if backgroundMode == .image {
-                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                        HStack {
-                            Text("选择背景图片")
-                            Spacer()
-                            if let selectedImage {
-                                Image(uiImage: selectedImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 32, height: 32)
-                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                            } else {
-                                Text("未选择").foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .onChange(of: selectedPhotoItem) { _, newItem in
-                        Task {
-                            if let data = try? await newItem?.loadTransferable(type: Data.self),
-                               let uiImage = UIImage(data: data) {
-                                selectedImage = uiImage
-                                let instanceID = existingInstance?.id ?? UUID().uuidString
-                                if let fileName = SharedImageHelper.saveImage(uiImage, for: instanceID) {
-                                    savedImageFileName = fileName
+
+                    // MARK: 独立配置卡片
+                    VStack(alignment: .leading, spacing: 14) {
+
+                        // 只有这里参与动画
+                        ZStack(alignment: .topLeading) {
+
+                            switch backgroundMode {
+
+                            case .system:
+
+                                Label {
+                                    Text("背景将跟随系统外观自动调整")
+                                        .font(.subheadline)
+                                } icon: {
+                                    Image(systemName: "info.circle")
                                 }
+                                
+                                .transition(.opacity)
+
+                            case .color:
+
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("自定义背景颜色与透明度")
+                                            .font(.subheadline)
+                                    }
+
+                                    Spacer()
+
+                                    ColorPicker(
+                                        "选择颜色",
+                                        selection: $selectedColor,
+                                        supportsOpacity: true
+                                    )
+                                    .labelsHidden()
+                                }
+                                .transition(.opacity)
+
+                            case .image:
+
+                                VStack(alignment: .leading, spacing: 12) {
+
+                                    PhotosPicker(
+                                        selection: $selectedPhotoItem,
+                                        matching: .images
+                                    ) {
+                                        HStack {
+                                            Label(
+                                                selectedImage == nil
+                                                    ? "选择背景图片"
+                                                    : "更换背景图片",
+                                                systemImage: "photo"
+                                            )
+
+                                            Spacer()
+
+                                            if let selectedImage {
+                                                Image(uiImage: selectedImage)
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                    .frame(width: 40, height: 40)
+                                                    .clipShape(
+                                                        RoundedRectangle(
+                                                            cornerRadius: 8
+                                                        )
+                                                    )
+                                            } else {
+                                                Image(systemName: "chevron.right")
+                                                    .foregroundStyle(.tertiary)
+                                            }
+                                        }
+                                        .foregroundStyle(.primary)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    
+                                    if selectedImage != nil {
+                                        Text("可在上方预览中双指缩放、拖动调整图片显示区域。")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                }
+                                .onChange(of: selectedPhotoItem) { _, newItem in
+                                    Task {
+                                        if let data = try? await newItem?
+                                            .loadTransferable(type: Data.self),
+                                           let uiImage = UIImage(data: data) {
+
+                                            selectedImage = uiImage
+
+                                            let instanceID =
+                                                existingInstance?.id ?? UUID().uuidString
+
+                                            if let fileName = SharedImageHelper
+                                                .saveImage(uiImage, for: instanceID) {
+                                                savedImageFileName = fileName
+                                            }
+                                        }
+                                    }
+                                }
+                                .transition(.opacity)
                             }
                         }
+                        // 动画只作用于配置内容
+                        .animation(
+                            .easeInOut(duration: 0.2),
+                            value: backgroundMode
+                        )
                     }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        Color(uiColor: .secondarySystemGroupedBackground),
+                        in: RoundedRectangle(
+                            cornerRadius: 16,
+                            style: .continuous
+                        )
+                    )
                 }
+                .padding(.vertical, 8)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
             
             // 💡 文字与外观设置
@@ -298,7 +382,6 @@ struct InstanceEditorView: View {
                 Button { textColorMode = .system } label: {
                     HStack {
                         Text(" \(TextColorMode.system.title)")
-                            .foregroundStyle(.primary)
                         Spacer()
                         if textColorMode == .system {
                             Image(systemName: "checkmark")
@@ -306,13 +389,12 @@ struct InstanceEditorView: View {
                                 .font(.body.weight(.semibold))
                         }
                     }
-                }
+                }.foregroundStyle(.primary)
                 
                 // 2. 文字颜色：自定义颜色
                 Button { textColorMode = .color } label: {
                     HStack {
                         Text("\(TextColorMode.color.title)")
-                            .foregroundStyle(.primary)
                         Spacer()
                         if textColorMode == .color {
                             Image(systemName: "checkmark")
@@ -320,7 +402,7 @@ struct InstanceEditorView: View {
                                 .font(.body.weight(.semibold))
                         }
                     }
-                }
+                }.foregroundStyle(.primary)
                 
                 // 只有当选中“自定义颜色”时才动态展开取色器
                 if textColorMode == .color {
@@ -454,7 +536,68 @@ struct InstanceEditorView: View {
         WidgetCenter.shared.reloadAllTimelines()
         isSaving = false
     }
+    
+    // MARK: - 背景模式选择按钮
+    @ViewBuilder
+    private func backgroundModeButton(
+        mode: BackgroundMode,
+        title: String,
+        icon: String
+    ) -> some View {
+
+        let isSelected = backgroundMode == mode
+
+        Button {
+            backgroundMode = mode
+        } label: {
+            VStack(spacing: 8) {
+
+                Image(systemName: icon)
+                    .font(.system(size: 21, weight: .medium))
+                    .foregroundStyle(
+                        isSelected ? Color.accentColor : Color.secondary
+                    )
+
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.primary)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 76)
+            .background(
+                isSelected
+                    ? Color.accentColor.opacity(0.10)
+                    : Color(uiColor: .secondarySystemGroupedBackground),
+                in: RoundedRectangle(
+                    cornerRadius: 14,
+                    style: .continuous
+                )
+            )
+            .overlay {
+                RoundedRectangle(
+                    cornerRadius: 14,
+                    style: .continuous
+                )
+                .strokeBorder(
+                    isSelected ? Color.accentColor : Color.clear,
+                    lineWidth: 1.5
+                )
+            }
+            .overlay(alignment: .topTrailing) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color.accentColor)
+                        .padding(7)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
 }
+
 
 @MainActor
 private func renderCroppedImage(image: UIImage, scale: CGFloat, offset: CGSize) -> UIImage? {
@@ -541,3 +684,5 @@ extension Color {
         return String(format: "#%02x%02x%02x%02x", r, g, b, a)
     }
 }
+
+
