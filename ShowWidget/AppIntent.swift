@@ -87,8 +87,8 @@ struct WidgetInstanceQuery: EntityQuery {
         let defaults = UserDefaults(suiteName: "group.autowidget.app2widget")
         // 使用同步锁防止并发读写冲突
         objc_sync_enter(defaults as Any)
-        defer { objc_sync_enter(defaults as Any); objc_sync_exit(defaults as Any) } // 简易互斥
-        
+        defer { objc_sync_exit(defaults as Any) } // ✅ 修复：正确释放锁
+         
         guard let data = defaults?.data(forKey: "widgetInstances"),
               let decoded = try? JSONDecoder().decode([WidgetDataSourceEntity].self, from: data) else {
             let defaultInstance = WidgetDataSourceEntity(id: "default_widget_instance_id", name: "默认小组件")

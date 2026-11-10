@@ -47,6 +47,7 @@ struct InstanceEditorView: View {
     @State private var errorMessage: String?
     @State private var textUpdatedAt: Date?
     
+    
     // 背景相关状态
     @State private var backgroundMode: BackgroundMode = .system
     @State private var selectedColor: Color = .white
@@ -68,6 +69,9 @@ struct InstanceEditorView: View {
     @State private var lastScale: CGFloat = 1.0
     @State private var imageOffset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
+    
+    
+    @State private var previousBackgroundMode: BackgroundMode = .system // 💡 正确使用 @State 修饰
     
     var onSaved: (String) -> Void
     
@@ -153,7 +157,7 @@ struct InstanceEditorView: View {
             
             // 小组件预览
             Section {
-                VStack {
+                VStack(spacing: 8) { // 加上固定的子元素间距
                     ZStack {
                         Group {
                             switch backgroundMode {
@@ -208,114 +212,111 @@ struct InstanceEditorView: View {
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
                             .stroke(Color.primary.opacity(0.1), lineWidth: 1)
                     }
-                    .padding(16)
                     
-                    if backgroundMode == .image && selectedImage != nil {
+                    // 💡 关键修改：用固定高度的容器包裹提示文字，彻底消除跳动
+                    ZStack {
                         Text("双指缩放，单指拖动")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
+                            // 只有当满足条件时才显现，不满足时透明度为 0 但依然占位
+                            .opacity((backgroundMode == .image && selectedImage != nil) ? 1 : 0)
                     }
+
+                    .animation(.easeInOut(duration: 0.2), value: backgroundMode == .image && selectedImage != nil)
                 }
                 .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
             .listSectionSeparator(.hidden)
             
             // 背景设置
+            // 背景设置
             Section("背景样式") {
-
                 VStack(spacing: 14) {
 
-                    // MARK: 三选一选择器（固定，不参与动画）
+                    // MARK: 三选一选择器（点击时计算左右滑动方向）
                     HStack(spacing: 10) {
-
-                        backgroundModeButton(
-                            mode: .system,
-                            title: "系统",
-                            icon: "sun.max"
-                        )
-
-                        backgroundModeButton(
-                            mode: .color,
-                            title: "颜色",
-                            icon: "paintpalette"
-                        )
-
-                        backgroundModeButton(
-                            mode: .image,
-                            title: "图片",
-                            icon: "photo"
-                        )
+                        backgroundModeButton(mode: .system, title: "系统", icon: "sun.max")
+                        backgroundModeButton(mode: .color, title: "颜色", icon: "paintpalette")
+                        backgroundModeButton(mode: .image, title: "图片", icon: "photo")
                     }
 
                     // MARK: 独立配置卡片
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        
+                        let allCases = BackgroundMode.allCases
+                        let currentIndex = allCases.firstIndex(of: backgroundMode) ?? 0
+                        let prevIndex = allCases.firstIndex(of: previousBackgroundMode) ?? 0
+                        let isMovingForward = currentIndex > prevIndex
+                        
+                        let insertionEdge: Edge = isMovingForward ? .trailing : .leading
+                        let removalEdge: Edge = isMovingForward ? .leading : .trailing
 
-                        // 只有这里参与动画
+                        // 💡 核心：ZStack 堆叠各个完整的卡片视图
                         ZStack(alignment: .topLeading) {
-
-                            switch backgroundMode {
-
-                            case .system:
-
-                                Label {
-                                    Text("背景将跟随系统外观自动调整")
+                            
+                            // 1. 系统模式卡片
+                            if backgroundMode == .system {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Label("背景将跟随系统外观自动调整", systemImage: "info.circle")
                                         .font(.subheadline)
-                                } icon: {
-                                    Image(systemName: "info.circle")
                                 }
-                                
-                                .transition(.opacity)
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    Color(uiColor: .secondarySystemGroupedBackground),
+                                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                )
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: insertionEdge),
+                                    removal: .move(edge: removalEdge)
+                                ))
+                            }
 
-                            case .color:
-
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("自定义背景颜色与透明度")
-                                            .font(.subheadline)
+                            // 2. 颜色模式卡片
+                            if backgroundMode == .color {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("自定义背景颜色与透明度")
+                                                .font(.subheadline)
+                                        }
+                                        Spacer()
+                                        ColorPicker("选择颜色", selection: $selectedColor, supportsOpacity: true)
+                                            .labelsHidden()
                                     }
-
-                                    Spacer()
-
-                                    ColorPicker(
-                                        "选择颜色",
-                                        selection: $selectedColor,
-                                        supportsOpacity: true
-                                    )
-                                    .labelsHidden()
                                 }
-                                .transition(.opacity)
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    Color(uiColor: .secondarySystemGroupedBackground),
+                                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                )
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: insertionEdge),
+                                    removal: .move(edge: removalEdge)
+                                ))
+                            }
 
-                            case .image:
-
+                            // 3. 图片模式卡片
+                            if backgroundMode == .image {
                                 VStack(alignment: .leading, spacing: 12) {
-
-                                    PhotosPicker(
-                                        selection: $selectedPhotoItem,
-                                        matching: .images
-                                    ) {
+                                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                                         HStack {
                                             Label(
-                                                selectedImage == nil
-                                                    ? "选择背景图片"
-                                                    : "更换背景图片",
+                                                selectedImage == nil ? "选择背景图片" : "更换背景图片",
                                                 systemImage: "photo"
                                             )
-
                                             Spacer()
-
                                             if let selectedImage {
                                                 Image(uiImage: selectedImage)
                                                     .resizable()
                                                     .scaledToFill()
                                                     .frame(width: 40, height: 40)
-                                                    .clipShape(
-                                                        RoundedRectangle(
-                                                            cornerRadius: 8
-                                                        )
-                                                    )
+                                                    .clipShape(RoundedRectangle(cornerRadius: 8))
                                             } else {
                                                 Image(systemName: "chevron.right")
                                                     .foregroundStyle(.tertiary)
@@ -326,49 +327,28 @@ struct InstanceEditorView: View {
                                     }
                                     .buttonStyle(.plain)
                                     
-                                    if selectedImage != nil {
-                                        Text("可在上方预览中双指缩放、拖动调整图片显示区域。")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-
+                                    Text("可在上方预览中双指缩放、拖动调整图片显示区域。")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .opacity(selectedImage != nil ? 1 : 0.0)
                                 }
-                                .onChange(of: selectedPhotoItem) { _, newItem in
-                                    Task {
-                                        if let data = try? await newItem?
-                                            .loadTransferable(type: Data.self),
-                                           let uiImage = UIImage(data: data) {
-
-                                            selectedImage = uiImage
-
-                                            let instanceID =
-                                                existingInstance?.id ?? UUID().uuidString
-
-                                            if let fileName = SharedImageHelper
-                                                .saveImage(uiImage, for: instanceID) {
-                                                savedImageFileName = fileName
-                                            }
-                                        }
-                                    }
-                                }
-                                .transition(.opacity)
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    Color(uiColor: .secondarySystemGroupedBackground),
+                                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                )
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: insertionEdge),
+                                    removal: .move(edge: removalEdge)
+                                ))
                             }
                         }
-                        // 动画只作用于配置内容
-                        .animation(
-                            .easeInOut(duration: 0.2),
-                            value: backgroundMode
-                        )
+                        // 💡 联动动画与边界裁剪：整个卡片容器平滑滑动，超出部分被裁剪掉
+                        .animation(.snappy(duration: 0.3), value: backgroundMode)
+                        .animation(.easeInOut(duration: 0.2), value: selectedImage != nil)
+                        .clipped()
                     }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        Color(uiColor: .secondarySystemGroupedBackground),
-                        in: RoundedRectangle(
-                            cornerRadius: 16,
-                            style: .continuous
-                        )
-                    )
                 }
                 .padding(.vertical, 8)
                 .listRowBackground(Color.clear)
@@ -544,14 +524,15 @@ struct InstanceEditorView: View {
         title: String,
         icon: String
     ) -> some View {
-
         let isSelected = backgroundMode == mode
 
         Button {
-            backgroundMode = mode
+            withAnimation(.snappy(duration: 0.3)) {
+                previousBackgroundMode = backgroundMode 
+                backgroundMode = mode
+            }
         } label: {
             VStack(spacing: 8) {
-
                 Image(systemName: icon)
                     .font(.system(size: 21, weight: .medium))
                     .foregroundStyle(

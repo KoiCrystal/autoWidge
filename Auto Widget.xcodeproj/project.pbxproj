@@ -49,6 +49,8 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				ContentView.swift,
+				CustomFontManager.swift,
+				FontManagerView.swift,
 				InstanceEditorView.swift,
 			);
 			target = FDD9686B2FADD93C00744915 /* ShowWidgetExtension */;
