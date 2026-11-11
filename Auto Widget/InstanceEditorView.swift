@@ -42,6 +42,7 @@ struct InstanceEditorView: View {
     let existingInstance: WidgetDataSourceEntity?
     
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase // 监听应用生命周期状态
     @State private var name: String
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -72,6 +73,7 @@ struct InstanceEditorView: View {
     
     
     @State private var previousBackgroundMode: BackgroundMode = .system // 💡 正确使用 @State 修饰
+    @FocusState private var isNameFocused: Bool   // 新增
     
     var onSaved: (String) -> Void
     
@@ -147,6 +149,7 @@ struct InstanceEditorView: View {
                     .autocorrectionDisabled()
                     .lineLimit(1...3)
                     .padding(.vertical, 6)
+                    .focused($isNameFocused)          // 新增
             } footer: {
                 if let errorMessage {
                     Text(errorMessage)
@@ -232,7 +235,6 @@ struct InstanceEditorView: View {
             }
             .listSectionSeparator(.hidden)
             
-            // 背景设置
             // 背景设置
             Section("背景样式") {
                 VStack(spacing: 14) {
@@ -365,7 +367,6 @@ struct InstanceEditorView: View {
                         Spacer()
                         if textColorMode == .system {
                             Image(systemName: "checkmark")
-                               
                                 .font(.body.weight(.semibold))
                         }
                     }
@@ -378,7 +379,6 @@ struct InstanceEditorView: View {
                         Spacer()
                         if textColorMode == .color {
                             Image(systemName: "checkmark")
-                                
                                 .font(.body.weight(.semibold))
                         }
                     }
@@ -387,7 +387,6 @@ struct InstanceEditorView: View {
                 // 只有当选中“自定义颜色”时才动态展开取色器
                 if textColorMode == .color {
                     ColorPicker("选择文字颜色与透明度", selection: $textColor)
-                    
                 }
                 
                 // 字体风格选择
@@ -397,9 +396,6 @@ struct InstanceEditorView: View {
                     Text("serif").tag("serif")
                     Text("圆体").tag("rounded")
                 }
-                
-                // 液态玻璃开关
-                // Toggle("液态玻璃晶莹质感", isOn: $isLiquidGlass)
                 
                 VStack(alignment: .leading) {
                     Text("文字大小: \(Int(selectedFontSize)) pt")
@@ -411,8 +407,6 @@ struct InstanceEditorView: View {
                     Slider(value: $selectedFontWidth, in: -0.4...0.8, step: 0.05)
                 }
             }
-            
-            
             
             Section {
                 HStack {
@@ -432,6 +426,23 @@ struct InstanceEditorView: View {
                 }
             }
         }
+        // 收起键盘
+        .scrollDismissesKeyboard(.interactively)
+        .onTapGesture {
+            isNameFocused = false
+        }
+        .onAppear {
+            reloadLatestData()
+            setupDarwinNotification()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                reloadLatestData()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("WidgetTextDidUpdateNotification"))) { _ in
+            reloadLatestData()
+        }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button {
@@ -448,6 +459,39 @@ struct InstanceEditorView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: selectedPhotoItem) { _, newItem in
+            Task {
+                guard let newItem else { return }
+                
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data) {
+                    
+                    await MainActor.run {
+                        selectedImage = uiImage
+                        imageScale = 1.0
+                        lastScale = 1.0
+                        imageOffset = .zero
+                        lastOffset = .zero
+                    }
+                }
+            }
+        }
+    }
+    
+    private func setupDarwinNotification() {
+        guard let instanceID = existingInstance?.id else { return }
+        let notificationName = "com.autowidget.textUpdated.\(instanceID)"
+        
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            nil,
+            { _, _, _, _, _ in
+                NotificationCenter.default.post(name: Notification.Name("WidgetTextDidUpdateNotification"), object: nil)
+            },
+            notificationName as CFString,
+            nil,
+            .deliverImmediately
+        )
     }
     
     public func save() async {
@@ -461,7 +505,6 @@ struct InstanceEditorView: View {
         var instances = query.loadAllInstances()
         let colorHex = selectedColor.toHex()
         
-        // 根据选择的文字颜色模式决定保存内容
         let textColorHex = textColorMode == .color ? textColor.toHex() : nil
         let textColorType = textColorMode.rawValue
         
@@ -483,12 +526,13 @@ struct InstanceEditorView: View {
                 instances[index].fontSize = selectedFontSize
                 instances[index].fontWidth = selectedFontWidth
                 instances[index].textColorName = textColorHex
-                instances[index].textColorType = textColorType // 💡 保存文字颜色类型
+                instances[index].textColorType = textColorType
                 instances[index].fontStyle = fontStyle
                 instances[index].isLiquidGlass = isLiquidGlass
                 
                 query.saveInstances(instances)
                 currentText = instances[index].text ?? "暂无文本"
+                onSaved("已保存修改")
                 dismiss()
             } else {
                 errorMessage = "更新失败：未找到该实例"
@@ -510,11 +554,25 @@ struct InstanceEditorView: View {
             instances.append(newInstance)
             query.saveInstances(instances)
             currentText = "暂无文本"
+            onSaved("创建成功")
             dismiss()
         }
         
         WidgetCenter.shared.reloadAllTimelines()
         isSaving = false
+    }
+    
+    // MARK: - 重新加载最新数据（解决更新时间不刷新的问题）
+    private func reloadLatestData() {
+        guard let existing = existingInstance else { return }
+        
+        let all = WidgetInstanceQuery().loadAllInstances()
+        guard let latest = all.first(where: { $0.id == existing.id }) else { return }
+        
+        if latest.text != currentText || latest.textUpdatedAt != textUpdatedAt {
+            currentText = latest.text ?? "暂无文本"
+            textUpdatedAt = latest.textUpdatedAt
+        }
     }
     
     // MARK: - 背景模式选择按钮
@@ -576,9 +634,7 @@ struct InstanceEditorView: View {
         }
         .buttonStyle(.plain)
     }
-
 }
-
 
 @MainActor
 private func renderCroppedImage(image: UIImage, scale: CGFloat, offset: CGSize) -> UIImage? {
@@ -589,8 +645,8 @@ private func renderCroppedImage(image: UIImage, scale: CGFloat, offset: CGSize) 
             .scaleEffect(scale)
             .offset(offset)
     }
-        .frame(width: 300, height: 300)
-        .clipped()
+    .frame(width: 300, height: 300)
+    .clipped()
     
     let renderer = ImageRenderer(content: renderView)
     renderer.scale = 2.0
@@ -661,9 +717,6 @@ extension Color {
         let b = Int(blue * 255)
         let a = Int(alpha * 255)
         
-        String(format: "#%02x%02x%02x%02x", r, g, b, a)
         return String(format: "#%02x%02x%02x%02x", r, g, b, a)
     }
 }
-
-

@@ -66,78 +66,114 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
 }
 
 // MARK: - 查询与管理实例（增加线程安全与局部更新支持）
+// MARK: - 查询与管理实例（跨进程安全版本）
 struct WidgetInstanceQuery: EntityQuery {
+    
+    private let suiteName = "group.autowidget.app2widget"
+    private let instancesKey = "widgetInstances"
+    
+    // 获取共享容器中的存储文件 URL
+    private var storageURL: URL? {
+        FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: suiteName)?
+            .appendingPathComponent("widget_instances.json")
+    }
+    
     func entities(for identifiers: [String]) async throws -> [WidgetDataSourceEntity] {
         let all = loadAllInstances()
-        return identifiers.compactMap { id in
-            all.first { $0.id == id }
-        }
+        return identifiers.compactMap { id in all.first { $0.id == id } }
     }
-
+    
     func suggestedEntities() async throws -> [WidgetDataSourceEntity] {
         loadAllInstances()
     }
-
+    
     func defaultResult() async -> WidgetDataSourceEntity? {
         loadAllInstances().first
     }
-
-    // 从共享 UserDefaults 加载全部实例（加锁保证并发安全）
+    
+    // MARK: - 加载
     func loadAllInstances() -> [WidgetDataSourceEntity] {
-        let defaults = UserDefaults(suiteName: "group.autowidget.app2widget")
-        // 使用同步锁防止并发读写冲突
-        objc_sync_enter(defaults as Any)
-        defer { objc_sync_exit(defaults as Any) } // ✅ 修复：正确释放锁
-         
-        guard let data = defaults?.data(forKey: "widgetInstances"),
-              let decoded = try? JSONDecoder().decode([WidgetDataSourceEntity].self, from: data) else {
-            let defaultInstance = WidgetDataSourceEntity(id: "default_widget_instance_id", name: "默认小组件")
-            saveInstances([defaultInstance])
-            return [defaultInstance]
+        guard let url = storageURL else {
+            return createDefaultIfNeeded()
         }
-        return decoded
-    }
-
-    func saveInstances(_ instances: [WidgetDataSourceEntity]) {
-        let defaults = UserDefaults(suiteName: "group.autowidget.app2widget")
-        objc_sync_enter(defaults as Any)
-        defer { objc_sync_exit(defaults as Any) }
         
-        if let data = try? JSONEncoder().encode(instances) {
-            defaults?.set(data, forKey: "widgetInstances")
+        var result: [WidgetDataSourceEntity] = []
+        
+        let coordinator = NSFileCoordinator()
+        var error: NSError?
+        
+        coordinator.coordinate(readingItemAt: url, options: [], error: &error) { readURL in
+            guard let data = try? Data(contentsOf: readURL),
+                  let decoded = try? JSONDecoder().decode([WidgetDataSourceEntity].self, from: data) else {
+                return
+            }
+            result = decoded
+        }
+        
+        if result.isEmpty {
+            return createDefaultIfNeeded()
+        }
+        return result
+    }
+    
+    // MARK: - 保存（覆盖写）
+    func saveInstances(_ instances: [WidgetDataSourceEntity]) {
+        guard let url = storageURL else { return }
+        
+        let coordinator = NSFileCoordinator()
+        var error: NSError?
+        
+        coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &error) { writeURL in
+            if let data = try? JSONEncoder().encode(instances) {
+                try? data.write(to: writeURL, options: .atomic)
+            }
         }
     }
     
-    // 【新增】原子化更新单个实例的文本，避免两个快捷指令互相覆盖
+    // MARK: - 原子更新单个实例文本（核心修复）
     func updateInstanceText(id: String, text: String, date: Date) {
-        let defaults = UserDefaults(suiteName: "group.autowidget.app2widget")
-        objc_sync_enter(defaults as Any)
-        defer { objc_sync_exit(defaults as Any) }
+        guard let url = storageURL else { return }
         
-        // 重新从最新的存储中读取
-        guard let data = defaults?.data(forKey: "widgetInstances"),
-              var instances = try? JSONDecoder().decode([WidgetDataSourceEntity].self, from: data) else {
-            return
-        }
+        let coordinator = NSFileCoordinator()
+        var error: NSError?
         
-        // 找到目标实例并更新
-        if let index = instances.firstIndex(where: { $0.id == id }) {
-            instances[index].text = text
-            instances[index].textUpdatedAt = date
+        // 使用 writing 权限，保证读改写是原子的
+        coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &error) { writeURL in
+            // 1. 读取最新数据
+            var instances: [WidgetDataSourceEntity] = []
+            if let data = try? Data(contentsOf: writeURL),
+               let decoded = try? JSONDecoder().decode([WidgetDataSourceEntity].self, from: data) {
+                instances = decoded
+            } else {
+                // 文件不存在时创建默认实例
+                instances = [WidgetDataSourceEntity(id: "default_widget_instance_id", name: "默认小组件")]
+            }
             
-            // 立即写回
-            if let encoded = try? JSONEncoder().encode(instances) {
-                defaults?.set(encoded, forKey: "widgetInstances")
+            // 2. 修改目标实例
+            if let index = instances.firstIndex(where: { $0.id == id }) {
+                instances[index].text = text
+                instances[index].textUpdatedAt = date
+                
+                // 3. 原子写回
+                if let encoded = try? JSONEncoder().encode(instances) {
+                    try? encoded.write(to: writeURL, options: .atomic)
+                }
             }
         }
     }
     
     func deleteInstances(withIDs ids: Set<String>) {
         var instances = loadAllInstances()
-        instances.removeAll { instance in
-            ids.contains(instance.id)
-        }
+        instances.removeAll { ids.contains($0.id) }
         saveInstances(instances)
+    }
+    
+    // 辅助：创建默认实例
+    private func createDefaultIfNeeded() -> [WidgetDataSourceEntity] {
+        let defaultInstance = WidgetDataSourceEntity(id: "default_widget_instance_id", name: "默认小组件")
+        saveInstances([defaultInstance])
+        return [defaultInstance]
     }
 }
 
@@ -164,6 +200,16 @@ struct UpdateWidgetTextIntent: AppIntent {
          
         // 只刷新对应的组件或者使用统一刷新
         WidgetCenter.shared.reloadAllTimelines()
+        
+        // 3. 💡 发送跨进程通知，告知主 App 文本已更新
+        let notificationName = "com.autowidget.textUpdated.\(instance.id)"
+        CFNotificationCenterPostNotification(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            CFNotificationName(notificationName as CFString),
+            nil,
+            nil,
+            true
+        )
         
         return .result(value: shortcutText)
     }
