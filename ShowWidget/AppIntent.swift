@@ -27,6 +27,7 @@ struct WidgetDataSourceEntity: AppEntity, Codable {
     var textColorType: String?     // 文字颜色类型 (是否跟随系统
     var textColorName: String?     // 文字颜色与透明度 hex (RGBA)
     var fontStyle: String?         // 字体样式 ("system", "monospaced", "serif", "rounded")
+    var customFontName: String?    // 💡 新增：用户自定义字体的 PostScript 名称
     var isLiquidGlass: Bool?       // 是否开启液态玻璃效果
 
     var displayRepresentation: DisplayRepresentation {

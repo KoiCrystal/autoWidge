@@ -11,10 +11,14 @@ import WidgetKit
 @main
 struct Auto_WidgetApp: App {
     
+    init() {
+        // 💡 启动时注册所有自定义字体
+        CustomFontManager.shared.registerAllFonts()
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
-            
         }
     }
 }

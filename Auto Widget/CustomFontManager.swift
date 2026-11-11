@@ -20,6 +20,9 @@ class CustomFontManager {
     // 使用 App Group 共享容器（确保小组件 Extension 也能用自定义字体）
     private let groupIdentifier = "group.autowidget.app2widget"
     
+    // 💡 记录已在内存中注册过的字体，防止重复注册报错
+    private var registeredFontNames = Set<String>()
+    
     private var fontDirectoryURL: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupIdentifier)?
             .appendingPathComponent("CustomFonts", isDirectory: true)
@@ -52,7 +55,7 @@ class CustomFontManager {
     }
     
     // 2. 从文件 URL 提取字体的 PostScript 名字
-    private func getFontName(from url: URL) -> String? {
+    func getFontName(from url: URL) -> String? {
         guard let data = try? Data(contentsOf: url),
               let provider = CGDataProvider(data: data as CFData),
               let cgFont = CGFont(provider),
@@ -62,14 +65,14 @@ class CustomFontManager {
         return postScriptName
     }
     
-    // 3. 注册所有已保存的字体（建议在 App 启动时调用）
+    // 3. 注册所有已保存的字体（轻量安全，只在进程内存中注册一次）
     func registerAllFonts() {
         guard let url = fontDirectoryURL,
               let files = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil) else {
             return
         }
         
-        for file in files {
+        for file in files where file.pathExtension.lowercased() == "ttf" || file.pathExtension.lowercased() == "otf" {
             registerFont(at: file)
         }
     }
@@ -81,12 +84,23 @@ class CustomFontManager {
               let cgFont = CGFont(provider) else {
             return false
         }
+        
+        let fontName = (cgFont.postScriptName as String?) ?? url.lastPathComponent
+        if registeredFontNames.contains(fontName) {
+            return true
+        }
+
         var error: Unmanaged<CFError>?
         let success = CTFontManagerRegisterGraphicsFont(cgFont, &error)
-        if !success {
-            print("注册字体失败: \(String(describing: error))")
+
+        if success {
+            registeredFontNames.insert(fontName)
+            return true
+        } else {
+            // 如果已注册过，也视作成功
+            registeredFontNames.insert(fontName)
+            return true
         }
-        return success
     }
     
     // 4. 导入新字体
@@ -112,10 +126,20 @@ class CustomFontManager {
         }
     }
     
-    // 5. 删除字体
     func deleteFont(fileName: String) {
         guard let destDir = fontDirectoryURL else { return }
         let fileURL = destDir.appendingPathComponent(fileName)
+
+        if let data = try? Data(contentsOf: fileURL),
+           let provider = CGDataProvider(data: data as CFData),
+           let cgFont = CGFont(provider) {
+            var error: Unmanaged<CFError>?
+            _ = CTFontManagerUnregisterGraphicsFont(cgFont, &error)
+            if let fontName = cgFont.postScriptName as String? {
+                registeredFontNames.remove(fontName)
+            }
+        }
+
         try? FileManager.default.removeItem(at: fileURL)
     }
 }

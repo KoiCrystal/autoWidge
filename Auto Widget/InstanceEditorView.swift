@@ -59,6 +59,8 @@ struct InstanceEditorView: View {
     @State private var textColor: Color = .white
     @State private var selectedFontWidth: CGFloat = 0.0
     @State private var fontStyle: String = "system"
+    @State private var customFontName: String? = nil // 💡 新增自定义字体名称状态
+    @State private var savedCustomFonts: [CustomFontEntity] = [] // 💡 已导入的自定义字体列表
     @State private var isLiquidGlass: Bool = false
     @State private var selectedFontSize: CGFloat = 17
     
@@ -73,7 +75,8 @@ struct InstanceEditorView: View {
     
     
     @State private var previousBackgroundMode: BackgroundMode = .system // 💡 正确使用 @State 修饰
-    @FocusState private var isNameFocused: Bool   // 新增
+    
+    @FocusState private var isNameFocused: Bool // 💡 用于控制键盘收起状态
     
     var onSaved: (String) -> Void
     
@@ -106,6 +109,7 @@ struct InstanceEditorView: View {
                 }
                 
                 _fontStyle = State(initialValue: latest.fontStyle ?? "system")
+                _customFontName = State(initialValue: latest.customFontName) // 💡 恢复自定义字体
                 _isLiquidGlass = State(initialValue: latest.isLiquidGlass ?? false)
                 _selectedFontWidth = State(initialValue: latest.fontWidth ?? 0.0)
                 
@@ -133,6 +137,7 @@ struct InstanceEditorView: View {
             textColorType: textColorMode.rawValue,
             textColorName: textColorMode == .color ? textColor.toHex() : nil,
             fontStyle: fontStyle,
+            customFontName: customFontName,
             isLiquidGlass: isLiquidGlass
         )
         config.instance = mockEntity
@@ -143,13 +148,18 @@ struct InstanceEditorView: View {
         Form {
             // 名称输入
             Section {
-                TextField("新建实例", text: $name, axis: .vertical)
+                TextField("新建实例", text: $name)
                     .font(.system(size: 28, weight: .bold))
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .lineLimit(1...3)
                     .padding(.vertical, 6)
-                    .focused($isNameFocused)          // 新增
+                    .focused($isNameFocused)
+                    .submitLabel(.done) // 将回车键显示为“完成”
+                    .onSubmit {
+                        isNameFocused = false
+                        
+                    }
+                          
             } footer: {
                 if let errorMessage {
                     Text(errorMessage)
@@ -389,12 +399,40 @@ struct InstanceEditorView: View {
                     ColorPicker("选择文字颜色与透明度", selection: $textColor)
                 }
                 
-                // 字体风格选择
-                Picker("字体样式", selection: $fontStyle) {
-                    Text("系统默认").tag("system")
-                    Text("等宽").tag("monospaced")
-                    Text("serif").tag("serif")
-                    Text("圆体").tag("rounded")
+                // 合并后的字体选择（支持标准样式与自定义字体）
+                Picker("字体样式", selection: Binding(
+                    get: {
+                        if let customFontName, !customFontName.isEmpty {
+                            return "custom_\(customFontName)"
+                        } else {
+                            return fontStyle
+                        }
+                    },
+                    set: { newValue in
+                        if newValue.hasPrefix("custom_") {
+                            let fontName = String(newValue.dropFirst(7))
+                            customFontName = fontName
+                            fontStyle = "system" // 默认退回基准样式
+                        } else {
+                            customFontName = nil
+                            fontStyle = newValue
+                        }
+                    }
+                )) {
+                    Section("系统样式") {
+                        Text("系统默认").tag("system")
+                        Text("等宽").tag("monospaced")
+                        Text("serif").tag("serif")
+                        Text("圆体").tag("rounded")
+                    }
+                    
+                    if !savedCustomFonts.isEmpty {
+                        Section("自定义字体") {
+                            ForEach(savedCustomFonts) { font in
+                                Text(font.name).tag("custom_\(font.name)")
+                            }
+                        }
+                    }
                 }
                 
                 VStack(alignment: .leading) {
@@ -426,18 +464,16 @@ struct InstanceEditorView: View {
                 }
             }
         }
-        // 收起键盘
-        .scrollDismissesKeyboard(.interactively)
-        .onTapGesture {
-            isNameFocused = false
-        }
+
         .onAppear {
             reloadLatestData()
             setupDarwinNotification()
+            savedCustomFonts = CustomFontManager.shared.loadSavedFonts() // 💡 加载已保存的自定义字体
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 reloadLatestData()
+                savedCustomFonts = CustomFontManager.shared.loadSavedFonts()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("WidgetTextDidUpdateNotification"))) { _ in
@@ -528,6 +564,7 @@ struct InstanceEditorView: View {
                 instances[index].textColorName = textColorHex
                 instances[index].textColorType = textColorType
                 instances[index].fontStyle = fontStyle
+                instances[index].customFontName = customFontName // 💡 保存自定义字体
                 instances[index].isLiquidGlass = isLiquidGlass
                 
                 query.saveInstances(instances)
@@ -549,6 +586,7 @@ struct InstanceEditorView: View {
                 textColorType: textColorType,
                 textColorName: textColorHex,
                 fontStyle: fontStyle,
+                customFontName: customFontName, // 💡 保存自定义字体
                 isLiquidGlass: isLiquidGlass
             )
             instances.append(newInstance)
