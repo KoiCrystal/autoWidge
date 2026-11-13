@@ -134,38 +134,44 @@ struct ShowWidgetEntryView : View {
         
         let hasCustomFont = (customFontName != nil && !customFontName!.isEmpty)
         
-        VStack {
-            if isGlass {
-                if #available(iOS 18.0, *) {
-                    let textPath = textToPath(entry.text, font: resolvedUIFont)
-                    let bounds = textPath.boundingRect
-                    
-                    GlassEffectContainer {
-                        Rectangle()
-                            .fill(Color.white.opacity(0.01))
-                            .frame(width: max(bounds.width, 10), height: max(bounds.height, 10))
-                            .glassEffect(.regular, in: textPath)
+        // 💡 使用 GeometryReader 获取小组件当前的实际可用渲染尺寸，确保自定义字体的换行宽度匹配小组件真实大小
+        GeometryReader { geometry in
+            let availableWidth = max(geometry.size.width - 24, 20) // 留出左右边距
+            let availableHeight = max(geometry.size.height - 24, 20)
+            
+            VStack(alignment: .center) {
+                if isGlass {
+                    if #available(iOS 18.0, *) {
+                        let textPath = textToPath(entry.text, font: resolvedUIFont, constrainedWidth: availableWidth)
+                        let bounds = textPath.boundingRect
+                        
+                        GlassEffectContainer {
+                            Rectangle()
+                                .fill(Color.white.opacity(0.01))
+                                .frame(width: max(bounds.width, 10), height: max(bounds.height, 10))
+                                .glassEffect(.regular, in: textPath)
+                        }
+                    }
+                } else {
+                    if hasCustomFont {
+                        // 💡 传入动态计算的 constrainedWidth，使 CoreText 能够正确触发多行自动换行
+                        let textPath = textToPath(entry.text, font: resolvedUIFont, constrainedWidth: availableWidth)
+                        let bounds = textPath.boundingRect
+                        
+                        textPath
+                            .fill(baseColor)
+                            .frame(width: max(bounds.width, 1), height: max(bounds.height, 1))
+                    } else {
+                        // 系统字体直接使用标准 Text，支持动态缩放和标准渲染
+                        Text(entry.text)
+                            .font(.system(size: fontSize, weight: swiftUIWeight, design: fontDesign))
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(baseColor)
                     }
                 }
-            } else {
-                if hasCustomFont {
-                    // 💡 对于动态自定义字体：使用矢量路径渲染，彻底解决 SpringBoard 找不到自定义字体的问题
-                    let textPath = textToPath(entry.text, font: resolvedUIFont)
-                    let bounds = textPath.boundingRect
-                    
-                    textPath
-                        .fill(baseColor)
-                        .frame(width: max(bounds.width, 1), height: max(bounds.height, 1))
-                } else {
-                    // 系统字体直接使用标准 Text，支持动态缩放和标准渲染
-                    Text(entry.text)
-                        .font(.system(size: fontSize, weight: swiftUIWeight, design: fontDesign))
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(baseColor)
-                }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .center)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
     }
 }
@@ -190,8 +196,8 @@ struct ShowWidget: Widget {
                         if let uiImage {
                             Image(uiImage: uiImage)
                                 .resizable()
-                                .scaledToFill()
-                                .clipped()
+                                .scaledToFit() // 💡 修复背景图片被放大裁剪的问题，改为 scaledToFit 完整呈现图片
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
                         } else {
                             Color(.systemBackground)
                         }
@@ -203,8 +209,8 @@ struct ShowWidget: Widget {
     }
 }
 
-// 💡 增强的多行/单行文本转矢量路径函数
-func textToPath(_ text: String, font: UIFont) -> Path {
+// 💡 增强的多行/单行文本转矢量路径函数（支持传入实际约束宽度以正常换行）
+func textToPath(_ text: String, font: UIFont, constrainedWidth: CGFloat = 280) -> Path {
     let paragraphStyle = NSMutableParagraphStyle()
     paragraphStyle.alignment = .center
     
@@ -221,7 +227,7 @@ func textToPath(_ text: String, font: UIFont) -> Path {
         framesetter,
         CFRange(location: 0, length: attributedString.length),
         nil,
-        CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude),
+        CGSize(width: constrainedWidth, height: CGFloat.greatestFiniteMagnitude),
         nil
     )
     
