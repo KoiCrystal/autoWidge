@@ -134,10 +134,9 @@ struct ShowWidgetEntryView : View {
         
         let hasCustomFont = (customFontName != nil && !customFontName!.isEmpty)
         
-        // 💡 使用 GeometryReader 获取小组件当前的实际可用渲染尺寸，确保自定义字体的换行宽度匹配小组件真实大小
+        // 💡 使用 GeometryReader 获取小组件当前的实际可用渲染尺寸
         GeometryReader { geometry in
-            let availableWidth = max(geometry.size.width - 24, 20) // 留出左右边距
-            let availableHeight = max(geometry.size.height - 24, 20)
+            let availableWidth = max(geometry.size.width - 24, 20)
             
             VStack(alignment: .center) {
                 if isGlass {
@@ -154,7 +153,6 @@ struct ShowWidgetEntryView : View {
                     }
                 } else {
                     if hasCustomFont {
-                        // 💡 传入动态计算的 constrainedWidth，使 CoreText 能够正确触发多行自动换行
                         let textPath = textToPath(entry.text, font: resolvedUIFont, constrainedWidth: availableWidth)
                         let bounds = textPath.boundingRect
                         
@@ -196,7 +194,7 @@ struct ShowWidget: Widget {
                         if let uiImage {
                             Image(uiImage: uiImage)
                                 .resizable()
-                                .scaledToFit() // 💡 修复背景图片被放大裁剪的问题，改为 scaledToFit 完整呈现图片
+                                .scaledToFit()
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         } else {
                             Color(.systemBackground)
@@ -209,7 +207,7 @@ struct ShowWidget: Widget {
     }
 }
 
-// 💡 增强的多行/单行文本转矢量路径函数（支持传入实际约束宽度以正常换行）
+// 💡 完美解决单字方向正确、且多行顺序正常（第一行在上）的文本转路径函数
 func textToPath(_ text: String, font: UIFont, constrainedWidth: CGFloat = 280) -> Path {
     let paragraphStyle = NSMutableParagraphStyle()
     paragraphStyle.alignment = .center
@@ -242,6 +240,7 @@ func textToPath(_ text: String, font: UIFont, constrainedWidth: CGFloat = 280) -
     CTFrameGetLineOrigins(frame, CFRange(location: 0, length: 0), &origins)
     
     let combinedPath = CGMutablePath()
+    let totalHeight = suggestedSize.height
     
     for (index, line) in lines.enumerated() {
         let lineOrigin = origins[index]
@@ -263,9 +262,14 @@ func textToPath(_ text: String, font: UIFont, constrainedWidth: CGFloat = 280) -
             
             for i in 0..<glyphCount {
                 if let glyphPath = CTFontCreatePathForGlyph(runFont, glyphs[i], nil) {
+                    // 💡 正确的矩阵变换组合：
+                    // 1. 将字形自身的 Y 轴翻转（y: -1），纠正字形笔画倒立问题
+                    // 2. 将行原点从底向上的坐标转换为从上向下的正确行序 (totalHeight - lineOrigin.y)
+                    let correctedY = totalHeight - lineOrigin.y
+                    
                     var transform = CGAffineTransform(
                         translationX: lineOrigin.x + positions[i].x,
-                        y: lineOrigin.y + positions[i].y
+                        y: correctedY + positions[i].y
                     )
                     transform = transform.scaledBy(x: 1, y: -1)
                     
