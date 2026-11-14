@@ -180,35 +180,74 @@ struct InstanceEditorView: View {
                                 selectedColor
                             case .image:
                                 if let selectedImage {
-                                    Image(uiImage: selectedImage)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .scaleEffect(imageScale)
-                                        .offset(imageOffset)
-                                        .gesture(
-                                            SimultaneousGesture(
-                                                MagnifyGesture()
-                                                    .onChanged { value in
-                                                        let delta = value.magnification / lastScale
-                                                        lastScale = value.magnification
-                                                        imageScale = min(max(imageScale * delta, 0.2), 6.0)
-                                                    }
-                                                    .onEnded { _ in
-                                                        lastScale = 1.0
-                                                    },
-                                                DragGesture()
-                                                    .onChanged { value in
-                                                        let translation = value.translation
-                                                        imageOffset = CGSize(
-                                                            width: lastOffset.width + translation.width,
-                                                            height: lastOffset.height + translation.height
-                                                        )
-                                                    }
-                                                    .onEnded { _ in
-                                                        lastOffset = imageOffset
-                                                    }
+                                    GeometryReader { proxy in
+                                        let containerSize = proxy.size
+                                        let imageSize = selectedImage.size
+                                        
+                                        // 💡 保证长宽同时填满容器（scaledToFill 的基准比例）
+                                        let widthRatio = containerSize.width / imageSize.width
+                                        let heightRatio = containerSize.height / imageSize.height
+                                        let baseFillScale = max(widthRatio, heightRatio)
+                                        
+                                        let currentScale = baseFillScale * imageScale
+                                        
+                                        // 实时计算填满容器后允许的最大拖动偏移边界
+                                        let renderedWidth = imageSize.width * currentScale
+                                        let renderedHeight = imageSize.height * currentScale
+                                        let maxOffsetX = max(0, (renderedWidth - containerSize.width) / 2)
+                                        let maxOffsetY = max(0, (renderedHeight - containerSize.height) / 2)
+                                        
+                                        Image(uiImage: selectedImage)
+                                            .resizable()
+                                            .scaledToFill()
+                                            .scaleEffect(imageScale)
+                                            .offset(imageOffset)
+                                            .frame(width: containerSize.width, height: containerSize.height)
+                                            .clipped()
+                                            .gesture(
+                                                SimultaneousGesture(
+                                                    MagnifyGesture()
+                                                        .onChanged { value in
+                                                            let delta = value.magnification / lastScale
+                                                            lastScale = value.magnification
+                                                            
+                                                            // 缩放比例限制：确保绝不小于 1.0（即不能缩得比填满容器更小）
+                                                            let newScale = min(max(imageScale * delta, 1.0), 6.0)
+                                                            imageScale = newScale
+                                                            
+                                                            // 缩放时同步矫正偏移，防止产生空白
+                                                            let newRenderedW = imageSize.width * baseFillScale * imageScale
+                                                            let newRenderedH = imageSize.height * baseFillScale * imageScale
+                                                            let newMaxX = max(0, (newRenderedW - containerSize.width) / 2)
+                                                            let newMaxY = max(0, (newRenderedH - containerSize.height) / 2)
+                                                            
+                                                            imageOffset = CGSize(
+                                                                width: min(max(imageOffset.width, -newMaxX), newMaxX),
+                                                                height: min(max(imageOffset.height, -newMaxY), newMaxY)
+                                                            )
+                                                            lastOffset = imageOffset
+                                                        }
+                                                        .onEnded { _ in
+                                                            lastScale = 1.0
+                                                        },
+                                                    DragGesture()
+                                                        .onChanged { value in
+                                                            let translation = value.translation
+                                                            let targetX = lastOffset.width + translation.width
+                                                            let targetY = lastOffset.height + translation.height
+                                                            
+                                                            // 严格限制拖动范围在安全边界内，绝不留白
+                                                            imageOffset = CGSize(
+                                                                width: min(max(targetX, -maxOffsetX), maxOffsetX),
+                                                                height: min(max(targetY, -maxOffsetY), maxOffsetY)
+                                                            )
+                                                        }
+                                                        .onEnded { _ in
+                                                            lastOffset = imageOffset
+                                                        }
+                                                )
                                             )
-                                        )
+                                    }
                                 } else {
                                     Color(.systemGray5)
                                 }
@@ -677,11 +716,20 @@ struct InstanceEditorView: View {
 @MainActor
 private func renderCroppedImage(image: UIImage, scale: CGFloat, offset: CGSize) -> UIImage? {
     let renderView = ZStack {
-        Image(uiImage: image)
-            .resizable()
-            .scaledToFit()
-            .scaleEffect(scale)
-            .offset(offset)
+        GeometryReader { proxy in
+            let containerSize = proxy.size
+            let imageSize = image.size
+            let widthRatio = containerSize.width / imageSize.width
+            let heightRatio = containerSize.height / imageSize.height
+            let baseFillScale = max(widthRatio, heightRatio)
+            
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .scaleEffect(scale)
+                .offset(offset)
+                .frame(width: containerSize.width, height: containerSize.height)
+        }
     }
     .frame(width: 300, height: 300)
     .clipped()
