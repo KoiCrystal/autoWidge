@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AC220D3330AD842100C7B589 /* LXGWWenKaiGBLite-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AC220D3230AD842100C7B589 /* LXGWWenKaiGBLite-Medium.ttf */; };
+		AC220D3430AD842100C7B589 /* LXGWWenKaiGBLite-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AC220D3230AD842100C7B589 /* LXGWWenKaiGBLite-Medium.ttf */; };
+		AC220D3930AD9AD000C7B589 /* ClawdMono.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AC220D3830AD9AD000C7B589 /* ClawdMono.ttf */; };
+		AC220D3A30AD9AD000C7B589 /* ClawdMono.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AC220D3830AD9AD000C7B589 /* ClawdMono.ttf */; };
 		FDD9686F2FADD93C00744915 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDD9686E2FADD93C00744915 /* WidgetKit.framework */; };
 		FDD968712FADD93C00744915 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDD968702FADD93C00744915 /* SwiftUI.framework */; };
 		FDD968822FADD93E00744915 /* ShowWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FDD9686C2FADD93C00744915 /* ShowWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -37,6 +41,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AC220D3230AD842100C7B589 /* LXGWWenKaiGBLite-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "LXGWWenKaiGBLite-Medium.ttf"; sourceTree = "<group>"; };
+		AC220D3830AD9AD000C7B589 /* ClawdMono.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = ClawdMono.ttf; sourceTree = "<group>"; };
 		FDD9685A2FADCA0500744915 /* Auto Widget.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Auto Widget.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDD9686C2FADD93C00744915 /* ShowWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShowWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDD9686E2FADD93C00744915 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
@@ -112,9 +118,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		AC220D2E30AD7D1700C7B589 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				AC220D3230AD842100C7B589 /* LXGWWenKaiGBLite-Medium.ttf */,
+				AC220D3830AD9AD000C7B589 /* ClawdMono.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
 		FDD968512FADCA0500744915 = {
 			isa = PBXGroup;
 			children = (
+				AC220D2E30AD7D1700C7B589 /* Fonts */,
 				FDD968892FADE7CB00744915 /* ShowWidgetExtension.entitlements */,
 				FDD9685C2FADCA0500744915 /* Auto Widget */,
 				FDD968722FADD93C00744915 /* ShowWidget */,
@@ -233,6 +249,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC220D3430AD842100C7B589 /* LXGWWenKaiGBLite-Medium.ttf in Resources */,
+				AC220D3930AD9AD000C7B589 /* ClawdMono.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -240,6 +258,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC220D3330AD842100C7B589 /* LXGWWenKaiGBLite-Medium.ttf in Resources */,
+				AC220D3A30AD9AD000C7B589 /* ClawdMono.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

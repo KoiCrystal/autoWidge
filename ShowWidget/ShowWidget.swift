@@ -16,17 +16,15 @@ struct Provider: AppIntentTimelineProvider {
     }
     
     // 动态从 App Group 中查询最新的实体数据
-    private func fetchInstance(for instance: WidgetDataSourceEntity?) -> WidgetDataSourceEntity? {
-        guard let id = instance?.id else { return nil }
-        let allInstances = WidgetInstanceQuery().loadAllInstances()
-        return allInstances.first(where: { $0.id == id })
-    }
-    
-    private func fetchText(for instance: WidgetDataSourceEntity?) -> String {
-        guard let target = fetchInstance(for: instance) else {
-            return instance == nil ? "请选择实例" : "实例不存在"
+    private func resolveLatest(for instance: WidgetDataSourceEntity?) -> (entity: WidgetDataSourceEntity?, text: String) {
+        guard let id = instance?.id else {
+            return (nil, "请选择实例")
         }
-        return target.text ?? "暂无文本"
+        let allInstances = WidgetInstanceQuery().loadAllInstances()
+        guard let target = allInstances.first(where: { $0.id == id }) else {
+            return (nil, "实例不存在")
+        }
+        return (target, target.text ?? "暂无文本")
     }
     
     func placeholder(in context: Context) -> SimpleEntry {
@@ -37,20 +35,20 @@ struct Provider: AppIntentTimelineProvider {
     }
     
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SimpleEntry {
-        let resolved = fetchInstance(for: configuration.instance)
+        let resolved = resolveLatest(for: configuration.instance)
         return SimpleEntry(date: Date(),
                            configuration: configuration,
-                           resolvedInstance: resolved,
-                           text: fetchText(for: configuration.instance))
+                           resolvedInstance: resolved.entity,
+                           text: resolved.text)
     }
     
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SimpleEntry> {
-        let resolved = fetchInstance(for: configuration.instance)
+        let resolved = resolveLatest(for: configuration.instance)
         let entry = SimpleEntry(
             date: Date(),
             configuration: configuration,
-            resolvedInstance: resolved, 
-            text: fetchText(for: configuration.instance)
+            resolvedInstance: resolved.entity,
+            text: resolved.text
         )
         return Timeline(entries: [entry], policy: .never)
     }
@@ -70,8 +68,7 @@ struct ShowWidgetEntryView : View {
     var body: some View {
         let instance = entry.resolvedInstance ?? entry.configuration.instance
         let fontSize = instance?.fontSize ?? 17
-        let fontWeightValue = instance?.fontWidth ?? 0.4
-        let fontStyle = instance?.fontStyle ?? "system"
+        let fontWeightValue = instance?.fontWeight ?? 400
         let customFontName = instance?.customFontName
         let textColorType = instance?.textColorType ?? (instance?.textColorName != nil ? "color" : "system")
         let textColorHex = instance?.textColorName ?? "#ffffffff"
@@ -79,67 +76,24 @@ struct ShowWidgetEntryView : View {
         let isGlass = instance?.isLiquidGlass ?? false
         
         let baseColor: Color = (textColorType == "color") ? customTextColor : .primary
-        
-        let fontDesign: Font.Design = {
-            switch fontStyle {
-            case "monospaced": return .monospaced
-            case "serif":      return .serif
-            case "rounded":    return .rounded
-            default:           return .default
-            }
-        }()
-        
-        let swiftUIWeight: Font.Weight = {
-            if fontWeightValue < -0.4 { return .ultraLight }
-            if fontWeightValue < -0.2 { return .thin }
-            if fontWeightValue < 0.0  { return .light }
-            if fontWeightValue < 0.15 { return .regular }
-            if fontWeightValue < 0.3  { return .medium }
-            if fontWeightValue < 0.45 { return .semibold }
-            if fontWeightValue < 0.6  { return .bold }
-            return .black
-        }()
-        
-        let uiWeight: UIFont.Weight = {
-            if fontWeightValue < -0.4 { return .ultraLight }
-            if fontWeightValue < -0.2 { return .thin }
-            if fontWeightValue < 0.0  { return .light }
-            if fontWeightValue < 0.15 { return .regular }
-            if fontWeightValue < 0.3  { return .medium }
-            if fontWeightValue < 0.45 { return .semibold }
-            if fontWeightValue < 0.6  { return .bold }
-            return .black
-        }()
-        
-        // 💡 构造对应的 UIFont 实例
-        let resolvedUIFont: UIFont = {
-            if let customFontName, !customFontName.isEmpty, let f = UIFont(name: customFontName, size: fontSize) {
-                return f
-            }
-            switch fontStyle {
-            case "monospaced":
-                return UIFont.monospacedSystemFont(ofSize: fontSize, weight: uiWeight)
-            case "serif":
-                let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .body)
-                    .withDesign(.serif) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: .body)
-                return UIFont(descriptor: descriptor, size: fontSize)
-            case "rounded":
-                let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .body)
-                    .withDesign(.rounded) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: .body)
-                return UIFont(descriptor: descriptor, size: fontSize)
-            default:
-                return UIFont.systemFont(ofSize: fontSize, weight: uiWeight)
-            }
-        }()
-        
+        let swiftUIWeight = CustomFontManager.shared.swiftUIWeight(for: fontWeightValue)
         let hasCustomFont = (customFontName != nil && !customFontName!.isEmpty)
+        
+        // 💡 仅在需要路径绘制（自定义字体或液态玻璃）时构造 UIFont
+        let resolvedUIFont: UIFont? = (hasCustomFont || isGlass)
+            ? CustomFontManager.shared.resolvedUIFont(
+                customFontName: customFontName,
+                size: fontSize,
+                weight: fontWeightValue
+            )
+            : nil
         
         // 💡 使用 GeometryReader 获取小组件当前的实际可用渲染尺寸
         GeometryReader { geometry in
             let availableWidth = max(geometry.size.width - 24, 20)
             
             VStack(alignment: .center) {
-                if isGlass {
+                if isGlass, let resolvedUIFont {
                     if #available(iOS 18.0, *) {
                         let textPath = textToPath(entry.text, font: resolvedUIFont, constrainedWidth: availableWidth)
                         let bounds = textPath.boundingRect
@@ -152,7 +106,7 @@ struct ShowWidgetEntryView : View {
                         }
                     }
                 } else {
-                    if hasCustomFont {
+                    if hasCustomFont, let resolvedUIFont {
                         let textPath = textToPath(entry.text, font: resolvedUIFont, constrainedWidth: availableWidth)
                         let bounds = textPath.boundingRect
                         
@@ -162,7 +116,7 @@ struct ShowWidgetEntryView : View {
                     } else {
                         // 系统字体直接使用标准 Text，支持动态缩放和标准渲染
                         Text(entry.text)
-                            .font(.system(size: fontSize, weight: swiftUIWeight, design: fontDesign))
+                            .font(.system(size: fontSize, weight: swiftUIWeight))
                             .multilineTextAlignment(.center)
                             .foregroundStyle(baseColor)
                     }

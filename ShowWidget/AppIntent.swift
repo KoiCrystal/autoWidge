@@ -23,7 +23,7 @@ struct WidgetDataSourceEntity: AppEntity, Codable {
     var backgroundImageName: String? // 共享容器中的图片文件名
     
     var fontSize: CGFloat?
-    var fontWidth: CGFloat?
+    var fontWeight: CGFloat?       // 字体粗细（标准为 100-900，可变字体按内部 wght 轴范围）
     var textColorType: String?     // 文字颜色类型 (是否跟随系统
     var textColorName: String?     // 文字颜色与透明度 hex (RGBA)
     var fontStyle: String?         // 字体样式 ("system", "monospaced", "serif", "rounded")
@@ -66,7 +66,6 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
     var instance: WidgetDataSourceEntity?
 }
 
-// MARK: - 查询与管理实例（增加线程安全与局部更新支持）
 // MARK: - 查询与管理实例（跨进程安全版本）
 struct WidgetInstanceQuery: EntityQuery {
     
@@ -112,6 +111,10 @@ struct WidgetInstanceQuery: EntityQuery {
             result = decoded
         }
         
+        if let error {
+            print("读取实例数据协调失败: \(error.localizedDescription)")
+        }
+        
         if result.isEmpty {
             return createDefaultIfNeeded()
         }
@@ -125,22 +128,25 @@ struct WidgetInstanceQuery: EntityQuery {
         let coordinator = NSFileCoordinator()
         var error: NSError?
         
-        coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &error) { writeURL in
+        coordinator.coordinate(writingItemAt: url, options: [], error: &error) { writeURL in
             if let data = try? JSONEncoder().encode(instances) {
                 try? data.write(to: writeURL, options: .atomic)
             }
         }
+        
+        if let error {
+            print("保存实例数据协调失败: \(error.localizedDescription)")
+        }
     }
     
-    // MARK: - 原子更新单个实例文本（核心修复）
+    // MARK: - 原子更新单个实例文本（使用 options: [] 以支持先读后写）
     func updateInstanceText(id: String, text: String, date: Date) {
         guard let url = storageURL else { return }
         
         let coordinator = NSFileCoordinator()
         var error: NSError?
         
-        // 使用 writing 权限，保证读改写是原子的
-        coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &error) { writeURL in
+        coordinator.coordinate(writingItemAt: url, options: [], error: &error) { writeURL in
             // 1. 读取最新数据
             var instances: [WidgetDataSourceEntity] = []
             if let data = try? Data(contentsOf: writeURL),
@@ -161,6 +167,10 @@ struct WidgetInstanceQuery: EntityQuery {
                     try? encoded.write(to: writeURL, options: .atomic)
                 }
             }
+        }
+        
+        if let error {
+            print("更新实例文本协调失败: \(error.localizedDescription)")
         }
     }
     
@@ -196,13 +206,14 @@ struct UpdateWidgetTextIntent: AppIntent {
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
         let query = WidgetInstanceQuery()
         
-        // 调用新的原子化更新方法，避免并发覆盖
+        // 调用原子化更新方法，避免并发覆盖
         query.updateInstanceText(id: instance.id, text: shortcutText, date: Date())
          
-        // 只刷新对应的组件或者使用统一刷新
+        // 刷新桌面小组件时间线
+        WidgetCenter.shared.reloadTimelines(ofKind: "ShowWidget")
         WidgetCenter.shared.reloadAllTimelines()
         
-        // 3. 💡 发送跨进程通知，告知主 App 文本已更新
+        // 发送跨进程通知，告知主 App 文本已更新
         let notificationName = "com.autowidget.textUpdated.\(instance.id)"
         CFNotificationCenterPostNotification(
             CFNotificationCenterGetDarwinNotifyCenter(),

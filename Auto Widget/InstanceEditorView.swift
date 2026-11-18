@@ -57,7 +57,9 @@ struct InstanceEditorView: View {
     // 外观与字体相关状态
     @State private var textColorMode: TextColorMode = .system // 💡 文字颜色模式
     @State private var textColor: Color = .white
-    @State private var selectedFontWidth: CGFloat = 0.0
+    @State private var selectedFontWeight: CGFloat = 400.0
+    @State private var lastHapticBucket: Int? = nil
+    @State private var weightHapticGenerator = UISelectionFeedbackGenerator()
     @State private var fontStyle: String = "system"
     @State private var customFontName: String? = nil // 💡 新增自定义字体名称状态
     @State private var savedCustomFonts: [CustomFontEntity] = [] // 💡 已导入的自定义字体列表
@@ -108,10 +110,10 @@ struct InstanceEditorView: View {
                     _textColor = State(initialValue: Color(hex: tColorHex))
                 }
                 
-                _fontStyle = State(initialValue: latest.fontStyle ?? "system")
+                _fontStyle = State(initialValue: "system")
                 _customFontName = State(initialValue: latest.customFontName) // 💡 恢复自定义字体
                 _isLiquidGlass = State(initialValue: latest.isLiquidGlass ?? false)
-                _selectedFontWidth = State(initialValue: latest.fontWidth ?? 0.0)
+                _selectedFontWeight = State(initialValue: latest.fontWeight ?? 400.0)
                 
                 // 恢复图片
                 if let imageName = latest.backgroundImageName {
@@ -120,6 +122,11 @@ struct InstanceEditorView: View {
                 }
             }
         }
+    }
+    
+    // 当前选中字体的字重调节能力
+    private var currentFontWeightCapability: FontWeightCapability {
+        CustomFontManager.shared.weightCapability(for: customFontName)
     }
     
     // 预览用的 Entry
@@ -133,7 +140,7 @@ struct InstanceEditorView: View {
             backgroundType: backgroundMode.rawValue,
             backgroundImageName: savedImageFileName,
             fontSize: selectedFontSize,
-            fontWidth: selectedFontWidth,
+            fontWeight: selectedFontWeight,
             textColorType: textColorMode.rawValue,
             textColorName: textColorMode == .color ? textColor.toHex() : nil,
             fontStyle: fontStyle,
@@ -438,37 +445,40 @@ struct InstanceEditorView: View {
                     ColorPicker("选择文字颜色与透明度", selection: $textColor)
                 }
                 
-                // 合并后的字体选择（支持标准样式与自定义字体）
+                // 合并后的字体选择（系统默认与预设字体合并，下方为自定义导入字体）
+                let presetFonts = savedCustomFonts.filter { $0.isPreset }
+                let userFonts = savedCustomFonts.filter { !$0.isPreset }
+                
                 Picker("字体样式", selection: Binding(
                     get: {
                         if let customFontName, !customFontName.isEmpty {
                             return "custom_\(customFontName)"
                         } else {
-                            return fontStyle
+                            return "system"
                         }
                     },
                     set: { newValue in
                         if newValue.hasPrefix("custom_") {
                             let fontName = String(newValue.dropFirst(7))
                             customFontName = fontName
-                            fontStyle = "system" // 默认退回基准样式
+                            fontStyle = "system"
                         } else {
                             customFontName = nil
-                            fontStyle = newValue
+                            fontStyle = "system"
                         }
                     }
                 )) {
-                    Section("系统样式") {
+                    Section("预设字体") {
                         Text("系统默认").tag("system")
-                        Text("等宽").tag("monospaced")
-                        Text("serif").tag("serif")
-                        Text("圆体").tag("rounded")
+                        ForEach(presetFonts) { font in
+                            Text(font.displayName).tag("custom_\(font.name)")
+                        }
                     }
                     
-                    if !savedCustomFonts.isEmpty {
+                    if !userFonts.isEmpty {
                         Section("自定义字体") {
-                            ForEach(savedCustomFonts) { font in
-                                Text(font.name).tag("custom_\(font.name)")
+                            ForEach(userFonts) { font in
+                                Text(font.displayName).tag("custom_\(font.name)")
                             }
                         }
                     }
@@ -479,10 +489,7 @@ struct InstanceEditorView: View {
                     Slider(value: $selectedFontSize, in: 12...32, step: 1)
                 }
                 
-                VStack(alignment: .leading) {
-                    Text("字体宽度: \(String(format: "%.2f", selectedFontWidth))")
-                    Slider(value: $selectedFontWidth, in: -0.4...0.8, step: 0.05)
-                }
+                fontWeightControl
             }
             
             Section {
@@ -507,11 +514,17 @@ struct InstanceEditorView: View {
         .onAppear {
             reloadLatestData()
             setupDarwinNotification()
-            savedCustomFonts = CustomFontManager.shared.loadSavedFonts() // 💡 加载已保存的自定义字体
+            CustomFontManager.shared.registerAllFonts()
+            savedCustomFonts = CustomFontManager.shared.loadSavedFonts() // 💡 加载预设与已保存的自定义字体
+            normalizeWeightForCurrentFont()
+        }
+        .onChange(of: customFontName) { _, _ in
+            normalizeWeightForCurrentFont()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 reloadLatestData()
+                CustomFontManager.shared.registerAllFonts()
                 savedCustomFonts = CustomFontManager.shared.loadSavedFonts()
             }
         }
@@ -550,6 +563,153 @@ struct InstanceEditorView: View {
                     }
                 }
             }
+        }
+    }
+    
+    // MARK: - 自适应字体粗细控件
+    @ViewBuilder
+    private var fontWeightControl: some View {
+        switch currentFontWeightCapability {
+        case .discrete(let values, let defaultValue):
+            let minVal = values.min() ?? 100
+            let maxVal = values.max() ?? 900
+            let clampedBinding = Binding<CGFloat>(
+                get: {
+                    values.min(by: { abs($0 - selectedFontWeight) < abs($1 - selectedFontWeight) }) ?? defaultValue
+                },
+                set: { newValue in
+                    let snapped = values.min(by: { abs($0 - newValue) < abs($1 - newValue) }) ?? defaultValue
+                    selectedFontWeight = snapped
+                    triggerWeightHapticIfNeeded(bucket: Int(snapped.rounded()))
+                }
+            )
+            let ticks = values.map { val in
+                WeightTickItem(value: val, label: "\(Int(val.rounded()))", isMajor: true)
+            }
+            
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("字体粗细")
+                    Spacer()
+                    Text(CustomFontManager.shared.discreteWeightDisplayName(for: clampedBinding.wrappedValue))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                Slider(value: clampedBinding, in: minVal...maxVal, step: 100) { editing in
+                    if editing {
+                        lastHapticBucket = Int(clampedBinding.wrappedValue.rounded())
+                        weightHapticGenerator.prepare()
+                    }
+                }
+                WeightTickBar(ticks: ticks, minValue: minVal, maxValue: maxVal)
+            }
+            
+        case .variable(let minVal, let maxVal, _):
+            let span = maxVal - minVal
+            let useIntegerDisplay = span >= 20
+            let hapticInterval = max(span / 16.0, 0.01)
+            let clampedBinding = Binding<CGFloat>(
+                get: { min(max(selectedFontWeight, minVal), maxVal) },
+                set: { newValue in
+                    let clamped = min(max(newValue, minVal), maxVal)
+                    selectedFontWeight = clamped
+                    let bucket = Int(((clamped - minVal) / hapticInterval).rounded())
+                    triggerWeightHapticIfNeeded(bucket: bucket)
+                }
+            )
+            let formattedValue = useIntegerDisplay
+                ? "\(Int(clampedBinding.wrappedValue.rounded()))"
+                : String(format: "%.2f", clampedBinding.wrappedValue)
+            let ticks = buildVariableTicks(minVal: minVal, maxVal: maxVal, useIntegerDisplay: useIntegerDisplay)
+            
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("字体粗细")
+                    Spacer()
+                    Text(formattedValue)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                if useIntegerDisplay {
+                    Slider(value: clampedBinding, in: minVal...maxVal, step: 1) { editing in
+                        if editing {
+                            lastHapticBucket = Int(((clampedBinding.wrappedValue - minVal) / hapticInterval).rounded())
+                            weightHapticGenerator.prepare()
+                        }
+                    }
+                } else {
+                    Slider(value: clampedBinding, in: minVal...maxVal) { editing in
+                        if editing {
+                            lastHapticBucket = Int(((clampedBinding.wrappedValue - minVal) / hapticInterval).rounded())
+                            weightHapticGenerator.prepare()
+                        }
+                    }
+                }
+                WeightTickBar(ticks: ticks, minValue: minVal, maxValue: maxVal)
+            }
+            
+        case .fixed:
+            HStack {
+                Text("字体粗细")
+                Spacer()
+                Text("当前字体不支持调节")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+    
+    private func triggerWeightHapticIfNeeded(bucket: Int) {
+        if lastHapticBucket == nil {
+            lastHapticBucket = bucket
+            return
+        }
+        if lastHapticBucket != bucket {
+            lastHapticBucket = bucket
+            weightHapticGenerator.selectionChanged()
+            weightHapticGenerator.prepare()
+        }
+    }
+    
+    private func buildVariableTicks(minVal: CGFloat, maxVal: CGFloat, useIntegerDisplay: Bool) -> [WeightTickItem] {
+        let span = maxVal - minVal
+        // 若起止值均为整百且间隔不超过 8 段，则直接展示整百刻度（如 100...900）
+        if useIntegerDisplay,
+           minVal.truncatingRemainder(dividingBy: 100) == 0,
+           maxVal.truncatingRemainder(dividingBy: 100) == 0 {
+            let count = Int((span / 100).rounded())
+            if count >= 2 && count <= 8 {
+                return (0...count).map { idx in
+                    let val = minVal + CGFloat(idx) * 100
+                    return WeightTickItem(value: val, label: "\(Int(val))", isMajor: true)
+                }
+            }
+        }
+        
+        // 其它范围（如 100-1000、250-850 或 0.0-1.0）生成 9 个刻度，其中 5 个主刻度带文字标签
+        let segments = 8
+        return (0...segments).map { idx in
+            let progress = CGFloat(idx) / CGFloat(segments)
+            let val = minVal + span * progress
+            let isMajor = idx % 2 == 0
+            let label: String? = if isMajor {
+                useIntegerDisplay ? "\(Int(val.rounded()))" : String(format: "%.1f", val)
+            } else {
+                nil
+            }
+            return WeightTickItem(value: val, label: label, isMajor: isMajor)
+        }
+    }
+    
+    private func normalizeWeightForCurrentFont() {
+        lastHapticBucket = nil
+        switch currentFontWeightCapability {
+        case .discrete(let values, let defaultValue):
+            selectedFontWeight = values.min(by: { abs($0 - selectedFontWeight) < abs($1 - selectedFontWeight) }) ?? defaultValue
+        case .variable(let minVal, let maxVal, _):
+            selectedFontWeight = min(max(selectedFontWeight, minVal), maxVal)
+        case .fixed:
+            break
         }
     }
     
@@ -599,7 +759,7 @@ struct InstanceEditorView: View {
                 instances[index].backgroundType = backgroundMode.rawValue
                 instances[index].backgroundImageName = savedImageFileName
                 instances[index].fontSize = selectedFontSize
-                instances[index].fontWidth = selectedFontWidth
+                instances[index].fontWeight = selectedFontWeight
                 instances[index].textColorName = textColorHex
                 instances[index].textColorType = textColorType
                 instances[index].fontStyle = fontStyle
@@ -608,6 +768,8 @@ struct InstanceEditorView: View {
                 
                 query.saveInstances(instances)
                 currentText = instances[index].text ?? "暂无文本"
+                WidgetCenter.shared.reloadTimelines(ofKind: "ShowWidget")
+                WidgetCenter.shared.reloadAllTimelines()
                 onSaved("已保存修改")
                 dismiss()
             } else {
@@ -622,6 +784,7 @@ struct InstanceEditorView: View {
                 backgroundType: backgroundMode.rawValue,
                 backgroundImageName: savedImageFileName,
                 fontSize: selectedFontSize,
+                fontWeight: selectedFontWeight,
                 textColorType: textColorType,
                 textColorName: textColorHex,
                 fontStyle: fontStyle,
@@ -631,11 +794,12 @@ struct InstanceEditorView: View {
             instances.append(newInstance)
             query.saveInstances(instances)
             currentText = "暂无文本"
+            WidgetCenter.shared.reloadTimelines(ofKind: "ShowWidget")
+            WidgetCenter.shared.reloadAllTimelines()
             onSaved("创建成功")
             dismiss()
         }
         
-        WidgetCenter.shared.reloadAllTimelines()
         isSaving = false
     }
     
@@ -710,6 +874,50 @@ struct InstanceEditorView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct WeightTickItem {
+    let value: CGFloat
+    let label: String?
+    let isMajor: Bool
+}
+
+private struct WeightTickBar: View {
+    let ticks: [WeightTickItem]
+    let minValue: CGFloat
+    let maxValue: CGFloat
+    
+    var body: some View {
+        GeometryReader { geo in
+            let trackWidth = max(geo.size.width, 1)
+            let span = max(maxValue - minValue, 0.0001)
+            
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(ticks.enumerated()), id: \.offset) { _, tick in
+                    let progress = min(max((tick.value - minValue) / span, 0), 1)
+                    let x = trackWidth * progress
+                    
+                    VStack(spacing: 2) {
+                        Capsule()
+                            .fill(tick.isMajor ? Color.secondary.opacity(0.65) : Color.secondary.opacity(0.3))
+                            .frame(width: tick.isMajor ? 1.5 : 1, height: tick.isMajor ? 6 : 4)
+                            .frame(height: 6, alignment: .top)
+                        
+                        Text(tick.label ?? " ")
+                            .font(.system(size: 10, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .fixedSize()
+                            .opacity(tick.label == nil ? 0 : 1)
+                    }
+                    .position(x: x, y: 11)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 22)
+        .allowsHitTesting(false)
     }
 }
 

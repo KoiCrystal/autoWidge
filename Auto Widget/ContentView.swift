@@ -101,11 +101,12 @@ struct ContentView: View {
             Group {
                 if let selectedID = selectedInstanceID,
                    let instance = instances.first(where: { $0.id == selectedID }) {
-                    // 选中实例时展示编辑界面
+                    // 选中实例时展示编辑界面，绑定 id 确保切换实例时完整刷新状态
                     InstanceEditorView(existingInstance: instance) { message in
                         self.message = message
                         refreshInstances()
                     }
+                    .id(instance.id)
                 } else {
                     // 未选中任何实例时（特别在 iPad 初始打开时）的空状态占位
                     ContentUnavailableView(
