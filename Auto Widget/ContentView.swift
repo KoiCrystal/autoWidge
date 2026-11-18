@@ -84,7 +84,7 @@ struct ContentView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("小组件实例管理")
+            .navigationTitle("小组件")
             .searchable(text: $searchText, prompt: "搜索")
             .toolbar {
                 // 在 iPad/大屏或窄屏上均可方便点击的新增按钮

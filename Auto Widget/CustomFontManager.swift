@@ -41,6 +41,7 @@ class CustomFontManager {
     private let presetFontDisplayNames: [String: String] = [
         "ClawdMono": "爪迹等宽",
         "LXGWWenKaiGBLite-Medium": "霞鹜文楷",
+        "LianshengLingguangti-2.2.11-Variable": "莲生灵光",
     ]
     
     private let stateLock = NSLock()
