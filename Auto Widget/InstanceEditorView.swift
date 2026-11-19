@@ -261,9 +261,14 @@ struct InstanceEditorView: View {
                             }
                         }
                         
-                        // 顶层叠加小组件文字
-                        ShowWidgetEntryView(entry: previewEntry)
-                            .allowsHitTesting(false)
+                        // 顶层叠加小组件文字（传入实时背景图与变换以精准预览透镜折射）
+                        ShowWidgetEntryView(
+                            entry: previewEntry,
+                            preloadedBackgroundImage: backgroundMode == .image ? selectedImage : nil,
+                            previewImageScale: imageScale,
+                            previewImageOffset: imageOffset
+                        )
+                        .allowsHitTesting(false)
                     }
                     .frame(width: 200, height: 200)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -491,6 +496,8 @@ struct InstanceEditorView: View {
                 }
                 
                 fontWeightControl
+                
+                Toggle("液态玻璃文字", isOn: $isLiquidGlass)
             }
             
             Section {
