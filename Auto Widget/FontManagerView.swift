@@ -76,7 +76,7 @@ struct FontManagerView: View {
         .fileImporter(
             isPresented: $isImporterPresented,
             allowedContentTypes: [.init(filenameExtension: "ttf")!, .init(filenameExtension: "otf")!],
-            allowsMultipleSelection: false
+            allowsMultipleSelection: true
         ) { result in
             handleFileImport(result)
         }
@@ -101,17 +101,26 @@ struct FontManagerView: View {
                 } else {
                     return String(format: "可变字重 %.1f–%.1f", minVal, maxVal)
                 }
+            case .discrete(let values, _):
+                let labels = values.map { "\(Int($0.rounded()))" }.joined(separator: ", ")
+                return "多文件字重 (\(labels))"
             case .fixed:
                 return "固定字重"
-            case .discrete:
-                return "分档字重"
             }
+        }()
+        
+        let subtitle: String = {
+            if font.variants.count > 1 {
+                return "\(font.displayName) · \(font.variants.count) 个文件 · \(capabilityText)"
+            }
+            let base = font.displayName == font.name ? font.fileName : "\(font.displayName) (\(font.fileName))"
+            return "\(base) · \(capabilityText)"
         }()
         
         VStack(alignment: .leading, spacing: 4) {
             Text("Preview 预览效果: 0123456789")
                 .font(Font(previewUIFont as CTFont))
-            Text("\(font.displayName == font.name ? font.fileName : "\(font.displayName) (\(font.fileName))") · \(capabilityText)")
+            Text(subtitle)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -126,12 +135,17 @@ struct FontManagerView: View {
     private func handleFileImport(_ result: Result<[URL], Error>) {
         errorMessage = nil
         do {
-            guard let selectedFile = try result.get().first else { return }
-            let success = CustomFontManager.shared.importFont(from: selectedFile)
-            if success {
-                loadFonts()
-            } else {
-                errorMessage = "导入或注册字体失败，文件可能已损坏"
+            let selectedFiles = try result.get()
+            guard !selectedFiles.isEmpty else { return }
+            var failedCount = 0
+            for file in selectedFiles {
+                if !CustomFontManager.shared.importFont(from: file) {
+                    failedCount += 1
+                }
+            }
+            loadFonts()
+            if failedCount > 0 {
+                errorMessage = "有 \(failedCount) 个字体导入或注册失败，文件可能已损坏"
             }
         } catch {
             errorMessage = "选择文件出错: \(error.localizedDescription)"
@@ -142,7 +156,7 @@ struct FontManagerView: View {
         let targets = importedFonts
         for index in offsets {
             let font = targets[index]
-            CustomFontManager.shared.deleteFont(fileName: font.fileName)
+            CustomFontManager.shared.deleteFontFamily(font)
         }
         loadFonts()
     }

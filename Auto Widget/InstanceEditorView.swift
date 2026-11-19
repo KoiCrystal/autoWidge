@@ -451,8 +451,9 @@ struct InstanceEditorView: View {
                 
                 Picker("字体样式", selection: Binding(
                     get: {
-                        if let customFontName, !customFontName.isEmpty {
-                            return "custom_\(customFontName)"
+                        if let canonical = CustomFontManager.shared.canonicalFontName(for: customFontName),
+                           !canonical.isEmpty {
+                            return "custom_\(canonical)"
                         } else {
                             return "system"
                         }
@@ -571,37 +572,50 @@ struct InstanceEditorView: View {
     private var fontWeightControl: some View {
         switch currentFontWeightCapability {
         case .discrete(let values, let defaultValue):
-            let minVal = values.min() ?? 100
-            let maxVal = values.max() ?? 900
-            let clampedBinding = Binding<CGFloat>(
-                get: {
-                    values.min(by: { abs($0 - selectedFontWeight) < abs($1 - selectedFontWeight) }) ?? defaultValue
-                },
-                set: { newValue in
-                    let snapped = values.min(by: { abs($0 - newValue) < abs($1 - newValue) }) ?? defaultValue
-                    selectedFontWeight = snapped
-                    triggerWeightHapticIfNeeded(bucket: Int(snapped.rounded()))
-                }
-            )
-            let ticks = values.map { val in
-                WeightTickItem(value: val, label: "\(Int(val.rounded()))", isMajor: true)
-            }
-            
-            VStack(alignment: .leading, spacing: 6) {
+            let sorted = values.sorted()
+            if sorted.count <= 1 {
                 HStack {
                     Text("字体粗细")
                     Spacer()
-                    Text(CustomFontManager.shared.discreteWeightDisplayName(for: clampedBinding.wrappedValue))
+                    Text("当前字体不支持调节")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .monospacedDigit()
                 }
-                Slider(value: clampedBinding, in: minVal...maxVal, step: 100) { editing in
-                    if editing {
-                        lastHapticBucket = Int(clampedBinding.wrappedValue.rounded())
-                        weightHapticGenerator.prepare()
+            } else {
+                let currentIndex = sorted.indices.min(by: {
+                    abs(sorted[$0] - selectedFontWeight) < abs(sorted[$1] - selectedFontWeight)
+                }) ?? (sorted.firstIndex(of: defaultValue) ?? 0)
+                
+                let indexBinding = Binding<Double>(
+                    get: { Double(currentIndex) },
+                    set: { newIndex in
+                        let idx = min(max(Int(newIndex.rounded()), 0), sorted.count - 1)
+                        let snapped = sorted[idx]
+                        selectedFontWeight = snapped
+                        triggerWeightHapticIfNeeded(bucket: idx)
                     }
+                )
+                
+                let ticks = sorted.enumerated().map { idx, val in
+                    WeightTickItem(value: CGFloat(idx), label: "\(Int(val.rounded()))", isMajor: true)
                 }
-                WeightTickBar(ticks: ticks, minValue: minVal, maxValue: maxVal)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("字体粗细")
+                        Spacer()
+                        Text(CustomFontManager.shared.discreteWeightDisplayName(for: sorted[currentIndex]))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    Slider(value: indexBinding, in: 0...Double(sorted.count - 1), step: 1) { editing in
+                        if editing {
+                            lastHapticBucket = currentIndex
+                            weightHapticGenerator.prepare()
+                        }
+                    }
+                    WeightTickBar(ticks: ticks, minValue: 0, maxValue: CGFloat(sorted.count - 1))
+                }
             }
             
         case .variable(let minVal, let maxVal, _):
@@ -673,7 +687,6 @@ struct InstanceEditorView: View {
     
     private func buildVariableTicks(minVal: CGFloat, maxVal: CGFloat, useIntegerDisplay: Bool) -> [WeightTickItem] {
         let span = maxVal - minVal
-        // 若起止值均为整百且间隔不超过 8 段，则直接展示整百刻度（如 100...900）
         if useIntegerDisplay,
            minVal.truncatingRemainder(dividingBy: 100) == 0,
            maxVal.truncatingRemainder(dividingBy: 100) == 0 {
@@ -686,7 +699,6 @@ struct InstanceEditorView: View {
             }
         }
         
-        // 其它范围（如 100-1000、250-850 或 0.0-1.0）生成 9 个刻度，其中 5 个主刻度带文字标签
         let segments = 8
         return (0...segments).map { idx in
             let progress = CGFloat(idx) / CGFloat(segments)
