@@ -68,6 +68,7 @@ struct ShowWidgetEntryView : View {
     var previewImageOffset: CGSize = .zero
     
     @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         let instance = entry.resolvedInstance ?? entry.configuration.instance
@@ -114,11 +115,14 @@ struct ShowWidgetEntryView : View {
                         textPath: textPath,
                         bounds: bounds,
                         containerSize: geometry.size,
+                        fontSize: fontSize,
+                        fontWeight: fontWeightValue,
                         backgroundImage: resolvedBgImage,
                         backgroundColor: bgColor,
                         imageScale: previewImageScale,
                         imageOffset: previewImageOffset,
                         tintColor: textColorType == "color" ? customTextColor : nil,
+                        colorScheme: colorScheme,
                         renderingMode: renderingMode
                     )
                 } else {
@@ -144,56 +148,94 @@ struct ShowWidgetEntryView : View {
     }
 }
 
-// MARK: - Widget 兼容的凸透镜折射液态玻璃文字视图
+// MARK: - Widget 兼容的均匀着色凸透镜液态玻璃文字视图
 private struct LiquidGlassTextPathView: View {
     let textPath: Path
     let bounds: CGRect
     let containerSize: CGSize
+    let fontSize: CGFloat
+    let fontWeight: CGFloat
     let backgroundImage: UIImage?
     let backgroundColor: Color?
     let imageScale: CGFloat
     let imageOffset: CGSize
     let tintColor: Color?
+    let colorScheme: ColorScheme
     let renderingMode: WidgetRenderingMode
+    
+    // 提取颜色纯色相与用户选择的透明度
+    private var decomposedTint: (color: Color, alpha: CGFloat)? {
+        guard let tintColor else { return nil }
+        var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
+        UIColor(tintColor).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return (Color(.sRGB, red: Double(r), green: Double(g), blue: Double(b), opacity: 1.0), max(0, min(a, 1)))
+    }
+    
+    // 判断非图片背景是否为浅色，用于微调玻璃轮廓对比度
+    private var isLightSolidBackground: Bool {
+        if let backgroundColor {
+            var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
+            UIColor(backgroundColor).getRed(&r, green: &g, blue: &b, alpha: &a)
+            let luminance = 0.299 * r + 0.587 * g + 0.114 * b
+            return a < 0.25 ? (colorScheme == .light) : (luminance > 0.65)
+        }
+        return colorScheme == .light
+    }
     
     var body: some View {
         let width = max(bounds.width, 1)
         let height = max(bounds.height, 1)
         let hasBackgroundImage = (backgroundImage != nil)
+        let tintInfo = decomposedTint
+        let hasTint = (tintInfo != nil)
+        let pureTint = tintInfo?.color ?? .white
+        let tintAlpha = Double(tintInfo?.alpha ?? 1.0)
+        
+        // 💡 根据字号与字重动态推算笔画粗细，避免细字体被厚描边淹没
+        let weightFactor = max(0.36, min(fontWeight / 400.0, 2.0))
+        let stemEstimate = max(0.9, fontSize * 0.082 * weightFactor)
+        let isThinGlyph = (fontWeight < 350) || (fontSize < 16)
+        
+        let rimBandWidth = min(max(stemEstimate * 1.15, 1.4), 4.8)
+        let innerHighlightWidth = min(max(stemEstimate * 0.42, 0.55), 1.40)
+        let innerShadowWidth = min(max(stemEstimate * 0.48, 0.60), 1.75)
+        let causticWidth = min(max(stemEstimate * 0.52, 0.70), 2.0)
+        let bevelOffset = min(max(stemEstimate * 0.24, 0.28), 0.85)
+        let bevelBlur = min(max(stemEstimate * 0.20, 0.20), 0.75)
+        let outerStrokeWidth: CGFloat = isThinGlyph ? 0.85 : 0.70
         
         ZStack {
             if renderingMode == .fullColor {
-                // 1. 图像背景：双层凸透镜折射采样（保留清晰背景纹理，避免过度磨砂）
+                // 1. 图像背景：双层凸透镜折射采样
                 if let backgroundImage {
-                    // 1a. 中心透镜放大区（1.20x 放大 + 轻微光学提亮与饱和度增强）
+                    // 1a. 中心透镜放大区（1.22x 放大，高通透）
                     refractedImageLayer(
                         image: backgroundImage,
-                        lensScale: 1.20,
-                        lensOffset: CGSize(width: 0, height: -0.8),
-                        blurRadius: 0.45
+                        lensScale: 1.22,
+                        lensOffset: CGSize(width: 0, height: -0.7),
+                        blurRadius: 0.25
                     )
-                    .brightness(0.06)
-                    .saturation(1.30)
-                    .contrast(1.08)
+                    .saturation(1.22)
+                    .contrast(1.05)
                     .mask {
                         textPath
                             .fill(Color.white)
                             .frame(width: width, height: height)
                     }
                     
-                    // 1b. 液态弯月面边缘强折射区（1.45x 放大 + 偏心错位，贴合内轮廓）
+                    // 1b. 弯月面边缘强弯曲折射区（1.48x 放大 + 偏心偏移）
                     refractedImageLayer(
                         image: backgroundImage,
-                        lensScale: 1.45,
+                        lensScale: 1.48,
                         lensOffset: CGSize(width: 1.8, height: 1.8),
-                        blurRadius: 0.3
+                        blurRadius: 0.15
                     )
-                    .brightness(0.14)
-                    .saturation(1.42)
-                    .contrast(1.12)
+                    .brightness(hasTint ? 0.03 : 0.07)
+                    .saturation(1.30)
+                    .contrast(1.08)
                     .mask {
                         textPath
-                            .stroke(Color.white, lineWidth: 5.5)
+                            .stroke(Color.white, lineWidth: rimBandWidth)
                             .frame(width: width, height: height)
                             .mask {
                                 textPath
@@ -202,93 +244,41 @@ private struct LiquidGlassTextPathView: View {
                             }
                     }
                 } else {
-                    // 1c. 非图片背景（系统/纯色）：营造透明折射基底，避免死白发灰
+                    // 1c. 非图片背景（系统/纯色）：统一中性透光基底，避免在多彩背景上发灰或偏色
                     textPath
                         .fill(.ultraThinMaterial)
                         .frame(width: width, height: height)
-                        .opacity(0.62)
+                        .opacity(hasTint ? 0.20 : (isLightSolidBackground ? 0.34 : 0.26))
                     
-                    if let backgroundColor {
+                    if !hasTint {
                         textPath
                             .fill(
-                                LinearGradient(
-                                    colors: [
-                                        backgroundColor.opacity(0.22),
-                                        backgroundColor.opacity(0.45),
-                                        .white.opacity(0.28)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                                isLightSolidBackground
+                                ? Color.black.opacity(0.07)
+                                : Color.white.opacity(0.08)
                             )
                             .frame(width: width, height: height)
                     }
                 }
                 
-                // 2. 极轻的玻璃基底透光（保持通透水感，不过度遮盖折射像素）
-                if hasBackgroundImage {
+                // 2. 均匀彩色玻璃染色层（保持首尾字符与多行文字深浅一致，同时贴合不同背景）
+                if hasTint {
+                    let uniformTintOpacity = (hasBackgroundImage ? 0.32 : 0.42) * tintAlpha
+                    
                     textPath
-                        .fill(.ultraThinMaterial)
-                        .frame(width: width, height: height)
-                        .opacity(0.18)
-                }
-                
-                // 3. 可选的玻璃染色层（仅在用户选择“自定义颜色”时生效）
-                if let tintColor {
-                    textPath
-                        .fill(tintColor.opacity(hasBackgroundImage ? 0.20 : 0.28))
+                        .fill(pureTint.opacity(uniformTintOpacity))
                         .frame(width: width, height: height)
                 }
                 
-                // 4. 立体液态鼓包体积感（内倒角高光、内暗面与底部焦散光斑）
-                // 4a. 宽幅柔和内部亮面（模拟液滴隆起顶部受光）
-                textPath
-                    .stroke(Color.white.opacity(0.68), lineWidth: 5.0)
-                    .offset(x: 1.2, y: 1.4)
-                    .blur(radius: 1.8)
-                    .frame(width: width, height: height)
-                    .mask {
-                        textPath
-                            .fill(Color.white)
-                            .frame(width: width, height: height)
-                    }
-                
-                // 4b. 底部内部暗角（增强厚实玻璃体深邃感）
-                textPath
-                    .stroke(Color.black.opacity(0.22), lineWidth: 4.0)
-                    .offset(x: -1.0, y: -1.2)
-                    .blur(radius: 1.6)
-                    .frame(width: width, height: height)
-                    .mask {
-                        textPath
-                            .fill(Color.white)
-                            .frame(width: width, height: height)
-                    }
-                
-                // 4c. 锐利内高光边（贴合左上边缘）
-                textPath
-                    .stroke(Color.white.opacity(0.92), lineWidth: 1.4)
-                    .offset(x: 0.6, y: 0.8)
-                    .blur(radius: 0.45)
-                    .frame(width: width, height: height)
-                    .mask {
-                        textPath
-                            .fill(Color.white)
-                            .frame(width: width, height: height)
-                    }
-                
-                // 4d. 底部/右下光焦散聚焦（光线穿透液滴后在底部聚光）
+                // 3. 立体玻璃内部体积光影（按笔画比例缩放，仅作用于局部边缘，不改变整体颜色深浅）
+                // 3a. 右下内部微暗棱（构建厚实液体边缘）
                 textPath
                     .stroke(
-                        LinearGradient(
-                            colors: [.clear, .white.opacity(0.15), .white.opacity(0.85)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 2.4
+                        Color.black.opacity((!hasBackgroundImage && isLightSolidBackground) ? 0.22 : 0.15),
+                        lineWidth: innerShadowWidth
                     )
-                    .offset(x: -0.4, y: -0.9)
-                    .blur(radius: 0.85)
+                    .offset(x: -bevelOffset, y: -bevelOffset)
+                    .blur(radius: bevelBlur)
                     .frame(width: width, height: height)
                     .mask {
                         textPath
@@ -296,57 +286,108 @@ private struct LiquidGlassTextPathView: View {
                             .frame(width: width, height: height)
                     }
                 
-                // 5. 表面湿润镜面高光带（左上亮泽反光 -> 中段通透 -> 右下微反光）
+                // 3b. 左上锐利湿润高光弧线
+                textPath
+                    .stroke(
+                        Color.white.opacity(hasTint ? 0.44 : 0.54),
+                        lineWidth: innerHighlightWidth
+                    )
+                    .offset(x: bevelOffset, y: bevelOffset)
+                    .blur(radius: bevelBlur * 0.65)
+                    .frame(width: width, height: height)
+                    .mask {
+                        textPath
+                            .fill(Color.white)
+                            .frame(width: width, height: height)
+                    }
+                
+                // 3c. 底部微弱光焦散内反光（均匀作用于每个字的底沿，避免跨字符色差）
+                textPath
+                    .stroke(
+                        (hasTint ? pureTint : Color.white).opacity(
+                            hasTint ? (0.34 * tintAlpha) : 0.38
+                        ),
+                        lineWidth: causticWidth
+                    )
+                    .offset(x: -bevelOffset * 0.35, y: -bevelOffset * 0.95)
+                    .blur(radius: bevelBlur * 0.85)
+                    .frame(width: width, height: height)
+                    .mask {
+                        textPath
+                            .fill(Color.white)
+                            .frame(width: width, height: height)
+                    }
+                
+                // 4. 克制的表面镜面光泽（仅轻微提亮顶部受光面，不再导致前后字色差）
                 textPath
                     .fill(
                         LinearGradient(
                             stops: [
-                                .init(color: .white.opacity(0.54), location: 0.0),
-                                .init(color: .white.opacity(0.16), location: 0.28),
-                                .init(color: .white.opacity(0.02), location: 0.55),
-                                .init(color: .white.opacity(0.24), location: 1.0)
+                                .init(color: .white.opacity(hasTint ? 0.14 : 0.18), location: 0.0),
+                                .init(color: .white.opacity(0.03), location: 0.35),
+                                .init(color: .clear, location: 0.70),
+                                .init(color: .white.opacity(0.05), location: 1.0)
                             ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            startPoint: .top,
+                            endPoint: .bottom
                         )
                     )
                     .frame(width: width, height: height)
                 
-                // 6. 纯净无色菲涅尔外轮廓描边（去除任何偏蓝/青色调）
+                // 5. 均匀菲涅尔外轮廓描边（保持彩色均匀环绕，仅在顶部叠加柔和白光）
+                textPath
+                    .stroke(
+                        (hasTint ? pureTint : Color.white).opacity(
+                            hasTint ? (0.58 * tintAlpha) : (isThinGlyph ? 0.44 : 0.34)
+                        ),
+                        lineWidth: outerStrokeWidth
+                    )
+                    .frame(width: width, height: height)
+                
                 textPath
                     .stroke(
                         LinearGradient(
                             stops: [
-                                .init(color: .white.opacity(0.95), location: 0.0),
-                                .init(color: .white.opacity(0.30), location: 0.45),
-                                .init(color: .white.opacity(0.22), location: 0.65),
-                                .init(color: .white.opacity(0.78), location: 1.0)
+                                .init(color: .white.opacity(isThinGlyph ? 0.68 : 0.56), location: 0.0),
+                                .init(color: .white.opacity(0.18), location: 0.5),
+                                .init(color: .white.opacity(0.28), location: 1.0)
                             ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            startPoint: .top,
+                            endPoint: .bottom
                         ),
-                        lineWidth: 0.85
+                        lineWidth: outerStrokeWidth * 0.85
                     )
                     .frame(width: width, height: height)
             } else {
                 // 系统透明/色调（Accented / Vibrant）桌面模式下，交由系统玻璃引擎统一着色
                 textPath
-                    .fill(.white.opacity(0.85))
+                    .fill(.white.opacity(0.76))
                     .frame(width: width, height: height)
                     .widgetAccentable()
                 
                 textPath
-                    .stroke(.white.opacity(0.55), lineWidth: 0.6)
+                    .stroke(.white.opacity(0.48), lineWidth: 0.6)
                     .frame(width: width, height: height)
                     .widgetAccentable()
             }
         }
         .frame(width: containerSize.width, height: containerSize.height)
+        // 彩色玻璃额外产生一层柔和均匀的彩色光焦散阴影
         .shadow(
-            color: renderingMode == .fullColor ? .black.opacity(0.24) : .clear,
-            radius: 4.0,
+            color: (renderingMode == .fullColor && hasTint)
+                ? pureTint.opacity(0.24 * tintAlpha)
+                : .clear,
+            radius: 3.8,
             x: 0,
-            y: 2.5
+            y: 2.0
+        )
+        .shadow(
+            color: renderingMode == .fullColor
+                ? .black.opacity(isThinGlyph ? 0.24 : 0.18)
+                : .clear,
+            radius: isThinGlyph ? 2.6 : 3.2,
+            x: 0,
+            y: isThinGlyph ? 1.4 : 1.8
         )
     }
     
