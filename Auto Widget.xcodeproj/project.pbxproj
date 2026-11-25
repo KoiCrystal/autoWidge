@@ -17,6 +17,7 @@
 		AC220D4630AED40C00C7B589 /* LXGWWenKai-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AC220D4430AED40C00C7B589 /* LXGWWenKai-Regular.ttf */; };
 		AC220D4830AED42400C7B589 /* LXGWWenKai-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AC220D4730AED42400C7B589 /* LXGWWenKai-Medium.ttf */; };
 		AC220D4930AED42400C7B589 /* LXGWWenKai-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AC220D4730AED42400C7B589 /* LXGWWenKai-Medium.ttf */; };
+		FD5B063F30B7520C0066D4F6 /* Readme.md in Resources */ = {isa = PBXBuildFile; fileRef = FD5B063E30B752060066D4F6 /* Readme.md */; };
 		FDD9686F2FADD93C00744915 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDD9686E2FADD93C00744915 /* WidgetKit.framework */; };
 		FDD968712FADD93C00744915 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDD968702FADD93C00744915 /* SwiftUI.framework */; };
 		FDD968822FADD93E00744915 /* ShowWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FDD9686C2FADD93C00744915 /* ShowWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -52,6 +53,7 @@
 		AC220D4130AED3F900C7B589 /* LXGWWenKai-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "LXGWWenKai-Light.ttf"; sourceTree = "<group>"; };
 		AC220D4430AED40C00C7B589 /* LXGWWenKai-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "LXGWWenKai-Regular.ttf"; sourceTree = "<group>"; };
 		AC220D4730AED42400C7B589 /* LXGWWenKai-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "LXGWWenKai-Medium.ttf"; sourceTree = "<group>"; };
+		FD5B063E30B752060066D4F6 /* Readme.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Readme.md; sourceTree = "<group>"; };
 		FDD9685A2FADCA0500744915 /* Auto Widget.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Auto Widget.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDD9686C2FADD93C00744915 /* ShowWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShowWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDD9686E2FADD93C00744915 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
@@ -142,6 +144,7 @@
 		FDD968512FADCA0500744915 = {
 			isa = PBXGroup;
 			children = (
+				FD5B063E30B752060066D4F6 /* Readme.md */,
 				AC220D2E30AD7D1700C7B589 /* Fonts */,
 				FDD968892FADE7CB00744915 /* ShowWidgetExtension.entitlements */,
 				FDD9685C2FADCA0500744915 /* Auto Widget */,
@@ -261,6 +264,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD5B063F30B7520C0066D4F6 /* Readme.md in Resources */,
 				AC220D3D30ADA6AB00C7B589 /* LianshengLingguangti-2.2.11-Variable.ttf in Resources */,
 				AC220D4230AED3F900C7B589 /* LXGWWenKai-Light.ttf in Resources */,
 				AC220D4630AED40C00C7B589 /* LXGWWenKai-Regular.ttf in Resources */,
@@ -345,7 +349,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = HW9KPTFPUS;
+				DEVELOPMENT_TEAM = WNFNF7QA7S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -409,7 +413,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = HW9KPTFPUS;
+				DEVELOPMENT_TEAM = WNFNF7QA7S;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -438,7 +442,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = HW9KPTFPUS;
+				DEVELOPMENT_TEAM = WNFNF7QA7S;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -484,7 +488,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = HW9KPTFPUS;
+				DEVELOPMENT_TEAM = WNFNF7QA7S;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -529,7 +533,7 @@
 				CODE_SIGN_ENTITLEMENTS = ShowWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = HW9KPTFPUS;
+				DEVELOPMENT_TEAM = WNFNF7QA7S;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ShowWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ShowWidget;
@@ -562,7 +566,7 @@
 				CODE_SIGN_ENTITLEMENTS = ShowWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = HW9KPTFPUS;
+				DEVELOPMENT_TEAM = WNFNF7QA7S;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ShowWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ShowWidget;

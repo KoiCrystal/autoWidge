@@ -41,7 +41,7 @@ class CustomFontManager {
     static let shared = CustomFontManager()
     
     // 使用 App Group 共享容器（确保小组件 Extension 也能用自定义字体）
-    private let groupIdentifier = "group.autowidget.app2widget"
+    private let groupIdentifier = "group.autowidget.app22widget"
     
     // OpenType 'wght' 字重轴的 FourCC 标识
     private let wghtAxisIdentifier: UInt32 = 0x77676874

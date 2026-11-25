@@ -497,7 +497,7 @@ struct InstanceEditorView: View {
                 
                 fontWeightControl
                 
-                Toggle("液态玻璃文字", isOn: $isLiquidGlass)
+                Toggle("玻璃效果", isOn: $isLiquidGlass)
             }
             
             Section {
@@ -971,7 +971,7 @@ struct SharedImageHelper {
     static func saveImage(_ image: UIImage, for instanceID: String) -> String? {
         let fileName = "widget_bg_\(instanceID).jpg"
         guard let data = image.jpegData(compressionQuality: 0.85),
-              let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.autowidget.app2widget") else {
+              let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.autowidget.app22widget") else {
             return nil
         }
         let fileURL = containerURL.appendingPathComponent(fileName)
@@ -986,7 +986,7 @@ struct SharedImageHelper {
     
     static func loadImage(fileName: String?) -> UIImage? {
         guard let fileName = fileName,
-              let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.autowidget.app2widget") else {
+              let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.autowidget.app22widget") else {
             return nil
         }
         let fileURL = containerURL.appendingPathComponent(fileName)

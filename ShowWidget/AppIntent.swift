@@ -69,7 +69,7 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
 // MARK: - 查询与管理实例（跨进程安全版本）
 struct WidgetInstanceQuery: EntityQuery {
     
-    private let suiteName = "group.autowidget.app2widget"
+    private let suiteName = "group.autowidget.app22widget"
     private let instancesKey = "widgetInstances"
     
     // 获取共享容器中的存储文件 URL
